@@ -1,97 +1,114 @@
 # BUILD — 编包 → 签名 → 索引 → 发布
 
-本文件是操作清单，不是教程。带 `[需实测确认]` 的步骤尚未在本机跑通，执行前先小范围验证。
+本文件是操作手册，命令都在 OpenWrt **25.12** SDK 容器里实测跑过（`ghcr.io/openwrt/sdk:<arch>-v25.12.0`）。
+仓库里的 `.github/workflows/build.yml` 是同一套流程的 CI 版本（按包 × 架构矩阵）。
 
 ## 0. 前置
 
-- [ ] 架构：`x86_64` 与 `aarch64_generic` 各准备一份 OpenWrt **25.12** SDK
-- [ ] 确认 SDK 版本与目标固件一致（同一个 25.12.x，避免 libc / ABI 不匹配）
+- [ ] 架构：`x86_64`、`aarch64_generic` 各一份 25.12 SDK 容器
 - [ ] 私钥只在本地或 CI secret 中存在，**不要**放进本仓库
+- [ ] 本仓库的 `keys/yun-feed.rsa.pub`（PEM）与私钥配对，指纹见 README
 
 ## 1. 取 SDK
 
-- [ ] 下载：`https://downloads.openwrt.org/releases/25.12.6/targets/x86/64/` 下的
-      `openwrt-sdk-25.12.6-x86-64_*.tar.zst`，`aarch64_generic` 换成 `armsr/armv8` 对应目录 `[需实测确认：确切文件名]`
-- [ ] 校验 `sha256sums` 与下载页公布值一致
-- [ ] 解压后进入 SDK 根目录
+- [ ] 直接用官方容器：`docker run --rm -it --user root ghcr.io/openwrt/sdk:x86_64-v25.12.0`
+      （`aarch64_generic` 换同名标签；容器里的 SDK 根目录是 `/builder`）
+- [ ] 不用官方容器而用 tar 包时，注意 SDK tar **缺 `staging_dir/hostpkg`**：直接编 LuCI 包会从源码拉
+      `ucode-mod-html` / `rpcd-mod-luci` / `lucihttp`，然后死在缺头文件上。
 
 ## 2. 配 feeds
 
-- [ ] `feeds.conf` 增加依赖来源（自研包依赖的 `nginx`、`acme`、`miniupnpc` 等在此源中）：
+自研包都是 `PKGARCH:=all`，编译阶段不链接目标库，只依赖 `luci-base` 的宿主工具（`po2lmo`）。
 
-      ```sh
-      echo 'src-git add https://github.com/QiuSimons/OpenWrt-Add.git' >> feeds.conf
-      ./scripts/feeds update -a
-      ./scripts/feeds install -a
-      ```
+```sh
+cd /builder
+git config --global http.version HTTP/1.1   # git.openwrt.org 的 TLS 偶发中断，HTTP/1.1 更稳
+./scripts/feeds update base packages luci
+./scripts/feeds install luci-base
+```
 
-- [ ] 注意：`acme` 在 25.12 不再是独立包，由 `acme-acmesh` 通过 `PROVIDES:=@acme` 提供，
-      `DEPENDS:=+acme` 可以被正常满足，**不需要**改 Makefile
+- [ ] `package/feeds/luci/luci-base` 符号链接存在，否则下一步的 `host/compile` 会报
+      `No rule to make target 'package/feeds/luci/luci-base/host/compile'`
+- [ ] 运行时依赖（`nginx`、`miniupnpc`、`acme*`、`curl`、`jq` 等）不需要在这里安装，
+      它们由设备端的官方 feed 提供
 
 ## 3. 放入包源码
 
-- [ ] 把三个包仓库的 `Makefile` 所在目录整体拷进 SDK 的 `package/` 下，例如：
+按包放到 `package/<包名>/`，`Makefile` 必须直接在这个目录下：
 
-      ```sh
-      cp -r /path/to/luci-app-nginx-manager           package/
-      cp -r /path/to/luci-app-cloudflare-ip/package/* package/
-      cp -r /path/to/luci-app-upnp-nat-relay/package/* package/
-      ```
+```sh
+cp -a /path/to/luci-app-nginx-manager/.            package/luci-app-nginx-manager/
+cp -a /path/to/luci-app-cloudflare-ip/package/luci-app-cloudflare-ip/. package/luci-app-cloudflare-ip/
+cp -a /path/to/luci-app-upnp-nat-relay/package/luci-app-upnp-nat-relay/. package/luci-app-upnp-nat-relay/
+```
 
-- [ ] 确认目录层级正确：`package/<包名>/Makefile` 必须直接存在，多套一层会找不到包
+```sh
+echo 'CONFIG_PACKAGE_luci-app-nginx-manager=y'   >> .config
+echo 'CONFIG_PACKAGE_luci-app-cloudflare-ip=y'   >> .config
+make defconfig </dev/null
+```
 
 ## 4. 签名密钥
 
-- [ ] 生成 EC P-256 密钥（与 OpenWrt ImageBuilder 保持一致）：
+25.12 没有 `CONFIG_SIGN_EACH_PACKAGE`，官方 `apk mkpkg` 调用里也不带 `--sign`。
+做法是给 `include/package-pack.mk` 打一行补丁，让每个包在打包时签名：
 
-      ```sh
-      openssl ecparam -name prime256v1 -genkey -noout -out private-key.pem
-      openssl ec -in private-key.pem -pubout -out public-key.pem
-      ```
+```sh
+cp private-key.pem public-key.pem /builder/      # 权限 600，不要入库
+python3 - <<'PY'
+import pathlib
+p = pathlib.Path('include/package-pack.mk')
+s = p.read_text()
+needle = '\t  --files "$$(IDIR_$(1))" \\\n'
+assert needle in s, 'mkpkg --files line not found'
+s = s.replace(needle, needle + '\t  --sign "$(TOPDIR)/private-key.pem" \\\n', 1)
+p.write_text(s)
+PY
+```
 
-- [ ] 把 `private-key.pem`、`public-key.pem` 放到 SDK **根目录**（`$(TOPDIR)`）。
-      `rules.mk` 中 `BUILD_KEY_APK_SEC=$(TOPDIR)/private-key.pem`、`BUILD_KEY_APK_PUB=$(TOPDIR)/public-key.pem`
-- [ ] 打开 `CONFIG_SIGN_EACH_PACKAGE=y`（`.config` 中；该选项 `depends on USE_APK`，默认 y）
-- [ ] 备份 `private-key.pem` 到仓库外；丢失后设备端将无法验证新旧包的一致性
+- [ ] `make package/.../compile` 前完成打补丁，否则产出的包没有签名
+- [ ] 私钥放 SDK 根目录（`$(TOPDIR)`），与 `rules.mk` 的 `BUILD_KEY_APK_SEC` 约定一致
 
 ## 5. 编译
 
-- [ ] `[需实测确认]` SDK 是否自带 `private-key.pem`；若无则按第 4 步生成
+先编宿主工具，再编包：
 
-      ```sh
-      make package/luci-app-nginx-manager/compile V=s
-      make package/luci-app-cloudflare-ip/compile V=s
-      make package/luci-app-upnp-nat-relay/compile V=s
-      ```
+```sh
+make package/feeds/luci/luci-base/host/compile V=s -j"$(nproc)" </dev/null
+test -x staging_dir/hostpkg/bin/po2lmo
 
-- [ ] 产物落在 `bin/packages/<arch>/<subdir>/*.apk` `[需实测确认：本地 package/ 的 subdir 归属]`
-- [ ] 逐个确认是 `.apk` 而不是 `.ipk`：`ls bin/packages/*/*/*.apk`
-- [ ] 检查依赖是否被自动带上：`apk info -R <包名>` 或查看包内 `depends` 字段
+make package/luci-app-nginx-manager/compile V=s -j"$(nproc)" </dev/null
+make package/luci-app-cloudflare-ip/compile V=s -j"$(nproc)" </dev/null
+make package/luci-app-upnp-nat-relay/compile V=s -j"$(nproc)" </dev/null
+```
 
-## 6. 生成索引
+- [ ] 产物在 `bin/packages/<arch>/base/*.apk`（`.apk` 不是 `.ipk`）
+- [ ] `po2lmo` 缺失时包的 `Build/Compile` 会跳过 `.lmo`：包能装上但中文界面不生效
+- [ ] 用 `apk adbdump --allow-untrusted <pkg>.apk` 检查 `usr/lib/lua/luci/i18n/*.lmo`
+      和 `usr/share/luci/menu.d/*.json` 是否在包内（apk v3 包不能用 `tar -tf` 读）
 
-- [ ] 把该架构所有 `.apk` 收拢到一个目录
-- [ ] 生成并签名索引（命令取自 OpenWrt ImageBuilder）：
+## 6. 校验与索引
 
-      ```sh
-      apk mkndx \
-        --keys-dir ./keys \
-        --sign ./private-key.pem \
-        --allow-untrusted \
-        --output packages.adb \
-        ./*.apk
-      ```
+```sh
+APK=staging_dir/host/bin/apk
+$APK --keys-dir keys verify ./*.apk          # 每个包都应输出 OK
 
-- [ ] `[需实测确认]` `--allow-untrusted` 的作用范围：仅跳过对输入包的校验，不影响输出索引的签名
-- [ ] 校验索引自身可被公钥验证通过（在干净环境里 `apk update` 试一次）
+$APK mkndx --allow-untrusted --keys-dir keys \
+  --sign-key private-key.pem \
+  --output packages.adb ./*.apk
+```
+
+- [ ] `mkndx` 会把目录里所有 `.apk` 重新索引一遍；**先放齐该架构的全部包再生成**
+- [ ] `--allow-untrusted` 只跳过对输入包的校验，索引本身仍然用 `--sign-key` 签名
+- [ ] `--sign` 是 `--sign-key` 的旧写法，两者等价
 
 ## 7. 发布
 
-- [ ] 公钥写入 `keys/yun-feed.rsa.pub`，内容为 **PEM**（`-----BEGIN PUBLIC KEY-----`）。
-      apk 3.0.7 不认 usign 的两行 `untrusted comment:` 格式，实测会报 `UNTRUSTED signature`
-- [ ] 把 `packages.adb` 与 `*.apk` 放到本仓库 `<arch>/` 目录
-- [ ] 更新 `src.lock`：记录三个包的上游 commit 与 `PKG_VERSION` / `PKG_RELEASE`
-- [ ] `git add` 后检查一遍没有把 `*.pem` / `*.key` 带进来
+- [ ] 公钥必须是 **PEM**（`-----BEGIN PUBLIC KEY-----`）；两行 `untrusted comment:` 格式会被判
+      `UNTRUSTED signature`
+- [ ] 把 `packages.adb` 与 `*.apk` 放进本仓库 `<arch>/` 目录
+- [ ] 更新 `src.lock`：记录上游 commit 与 `PKG_VERSION` / `PKG_RELEASE`
+- [ ] `git add` 后检查没有把 `*.pem` / `*.key` 带进来
 - [ ] 推送后等 GitHub Pages 生效（从 `main` 根目录发布，`.nojekyll` 必须在）
 
 ## 8. 版本递增规则
@@ -106,6 +123,7 @@
 
 1. `apk update` 报 `UNTRUSTED signature` → 公钥内容不是 PEM，或没放进 `/etc/apk/keys/`
 2. `apk update` 报 `BAD signature` → 索引被改过，或签名时用的不是同一把私钥
-3. `apk add` 报缺依赖 → 依赖包不在任何已启用源里，先确认 `feeds.conf` 与 `packages.adb` 内容
-4. 包能装但 LuCI 里看不到菜单 → 看 `/usr/share/luci/menu.d/*.json` 是否随包安装，清缓存后重登
-5. 中文界面不生效 → 翻译文件应落在 `/usr/lib/lua/luci/i18n/`，检查 `.lmo` 的文件名语言段是否为 `zh-cn`
+3. `apk update` 报 404 → 源地址写成了目录；必须写到 `packages.adb` 文件本身
+4. `apk add` 报缺依赖 → 依赖包不在任何已启用源里，先确认官方 `distfeeds.list` 与 `packages.adb` 内容
+5. 包能装但 LuCI 里看不到菜单 → 看 `/usr/share/luci/menu.d/*.json` 是否随包安装，清缓存后重登
+6. 中文界面不生效 → 检查包内 `.lmo` 的文件名语言段是否为 `zh-cn`

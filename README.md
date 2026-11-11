@@ -2,16 +2,25 @@
 
 面向 **OpenWrt 25.12**（apk-tools 3，包格式 `.apk`，索引 `packages.adb`）的私有 APK 软件源。
 
-供给 SWrt 固件在构建时注入，主要内容是自研 LuCI 应用：
+供给 SWrt / YunWrt 固件在构建时注入，当前收录的是自研 LuCI 应用：
 
-| 包名 | 说明 |
-| --- | --- |
-| `luci-app-nginx-manager` | nginx 图形化管理（配置生成、证书下发、日志查看） |
-| `luci-app-cloudflare-ip` | 通过 Cloudflare API 动态更新 DNS 记录 |
-| `luci-app-upnp-nat-relay` | UPnP / NAT 穿透中继 |
+| 包名 | 版本 | 架构 | 说明 |
+| --- | --- | --- | --- |
+| `luci-app-nginx-manager` | 1.8.8-r1 | noarch | nginx 图形化管理（站点、反代、证书、日志、备份） |
+| `luci-app-cloudflare-ip` | 2.6.0-r13 | noarch | Cloudflare IP 优选，并把结果写入 PassWall / OpenClash 配置 |
+| `luci-app-upnp-nat-relay` | 1.3.13-r4 | noarch | 下游 UPnP 映射经上游 NAT 中继（nftables DNAT） |
 
-> **当前状态：仅仓库骨架。** 尚未发布任何 `.apk`，尚未生成签名密钥，`packages.adb` 索引不存在。
-> 下文凡标注「计划中」的部分都还没有落地，不要当成已验证的用法。
+> **当前状态：已发布。** 上表三个包在 `x86_64/` 与 `aarch64_generic/` 两个架构目录里都有签名的
+> `packages.adb` 索引，三个 `.apk` 均可用 `keys/yun-feed.rsa.pub` 验证通过。
+> 三个包都是 `PKGARCH:=all`（包内元数据为 `arch: noarch`），所以两个架构目录里放的是同一份包文件，
+> 索引按架构分别生成。
+
+未收录（有意排除，不是遗漏）：
+
+- `luci-app-performance-manager`：独立的性能管理项目，不在 YunWrt 的 `config_self.seed` 里；
+  它的全功能包在构建时需要先把已资格验证的 `rill-runtime` 二进制放进源码树，不属于本 feed 的常规编包路径。
+- `rill-runtime` / `rill-runtime-preview`：`luci-app-cloudflare-ip` 的可选依赖，当前设备未启用，不随本 feed 分发。
+- `luci-app-cloudflare-ip-rill`：依赖 `rill-runtime-preview` 的薄封装子包，同样未启用。
 
 ## 目录结构
 
@@ -26,7 +35,7 @@
 ├── patches/              # 对上游包的补丁（按 <包名>/0001-*.patch 组织）
 ├── src.lock              # 上游仓库 commit 与包版本锁定
 └── docs/
-    └── BUILD.md          # 编包 → 签名 → 索引 → 发布 的待办清单
+    └── BUILD.md          # 编包 → 签名 → 索引 → 发布 的操作手册
 ```
 
 按架构分目录，是为了让设备端只需要引用自己架构的那一个 `packages.adb`，不必在索引里做架构过滤。
@@ -49,16 +58,20 @@ mkdir -p /etc/apk/repositories.d
 echo "https://hello-yunshu.github.io/yun-openwrt-packages/x86_64/packages.adb" \
   > /etc/apk/repositories.d/yun-feed.list
 
-# 3. 刷新并安装
+# 3. 刷新并安装（三个包可以一起装）
 apk update
-apk add luci-app-nginx-manager
+apk add luci-app-nginx-manager luci-app-cloudflare-ip luci-app-upnp-nat-relay
 ```
 
 说明：
 
 - 源地址必须写到 `packages.adb` 文件本身。只写到目录时，apk 3 会按 `<目录>/<arch>/` 再拼一次，结果 404。
 - `apk update` 只重建本地索引缓存；新增源后必须执行一次，否则 `apk add` 找不到包。
+- 依赖（`luci-base`、`nginx`、`miniupnpc`、`acme*`、`curl`、`jq`、`flock` 等）都来自官方
+  25.12 feeds，本 feed 只提供自研包本身，不重复分发官方包。
 - 若要从本仓库升级，`apk upgrade` 依赖 `PKG_VERSION` / `PKG_RELEASE` 的变化，见 `docs/BUILD.md`。
+- 安装后若 LuCI 菜单没出现，清 `/tmp/luci-indexcache.*` 并重新登录；启动脚本分别在
+  `/etc/init.d/nginx_manager`、`/etc/init.d/cf_ip`、`/etc/init.d/upnp-nat-relay`。
 
 ## 构建端使用
 
@@ -117,7 +130,15 @@ apk verify ./luci-app-nginx-manager-*.apk
 
 ## 版本与锁定
 
-`src.lock` 记录每个包对应的上游仓库与固定 commit，用于复现构建。目前为空文件占位。
+`src.lock` 记录每个包对应的上游仓库与固定 commit，以及已发布的 `PKG_VERSION` / `PKG_RELEASE`。
+CI 矩阵与 `src.lock` 使用同一个 commit，构建可复现。
+
+## 索引地址
+
+| 架构 | 索引 URL |
+| --- | --- |
+| `x86_64` | `https://hello-yunshu.github.io/yun-openwrt-packages/x86_64/packages.adb` |
+| `aarch64_generic` | `https://hello-yunshu.github.io/yun-openwrt-packages/aarch64_generic/packages.adb` |
 
 ## 相关文档
 
