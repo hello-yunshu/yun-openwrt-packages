@@ -38,12 +38,13 @@
 `UNTRUSTED signature`。
 
 ```sh
-# 1. 放入本仓库公钥（文件名必须以 .rsa.pub 结尾，apk 才会加载）
+# 1. 放入本仓库公钥（内容必须是 PEM，扩展名无所谓；官方 rootfs 用的是 .pem）
 mkdir -p /etc/apk/keys
 wget -O /etc/apk/keys/yun-feed.rsa.pub \
   https://raw.githubusercontent.com/hello-yunshu/yun-openwrt-packages/main/keys/yun-feed.rsa.pub
 
-# 2. 添加软件源（x86_64 为例，ARM 设备换成 aarch64_generic）
+# 2. 添加软件源：直接指向 packages.adb，和官方 distfeeds.list 的写法一致
+#    x86_64 为例，ARM 设备换成 aarch64_generic
 mkdir -p /etc/apk/repositories.d
 echo "https://hello-yunshu.github.io/yun-openwrt-packages/x86_64/packages.adb" \
   > /etc/apk/repositories.d/yun-feed.list
@@ -55,7 +56,7 @@ apk add luci-app-nginx-manager
 
 说明：
 
-- 上面的源地址使用 GitHub Pages，**计划中**，尚未启用。在启用之前，只能按「构建端」的方式在本地使用。
+- 源地址必须写到 `packages.adb` 文件本身。只写到目录时，apk 3 会按 `<目录>/<arch>/` 再拼一次，结果 404。
 - `apk update` 只重建本地索引缓存；新增源后必须执行一次，否则 `apk add` 找不到包。
 - 若要从本仓库升级，`apk upgrade` 依赖 `PKG_VERSION` / `PKG_RELEASE` 的变化，见 `docs/BUILD.md`。
 
@@ -70,7 +71,7 @@ SDK 编译 → 逐包签名 → apk mkndx 生成索引 → 发布到本仓库对
 细节、确切命令、失败排查见 [docs/BUILD.md](docs/BUILD.md)。要点：
 
 - 编译用 OpenWrt 25.12 SDK，产物是 `.apk`（不是 `.ipk`）。
-- 每个 `.apk` 用私钥签名（`apk mkpkg --sign`），索引也要签（`apk mkndx --sign`）。
+- 每个 `.apk` 用私钥签名（`apk mkpkg --sign`，等价写法 `--sign-key`），索引也要签（`apk mkndx --sign-key`）。
 - 私钥**不入库**，只在构建端或 CI secret 中存在；`.gitignore` 已忽略 `*.key` / `*.pem`。
 - 设备端开签名校验时，索引和包都必须能被 `keys/` 里的公钥验证通过，否则整源不可用。
 
@@ -91,8 +92,7 @@ SDK 编译 → 逐包签名 → apk mkndx 生成索引 → 发布到本仓库对
 **公钥指纹**（拿到仓库后先核对，防止中间人替换）：
 
 ```sh
-sed -n '2p' keys/yun-feed.rsa.pub | base64 -d \
-  | openssl pkey -pubin -outform DER | openssl dgst -sha256
+openssl pkey -pubin -in keys/yun-feed.rsa.pub -outform DER | openssl dgst -sha256
 ```
 
 结果与下方指纹比对，一致才继续。

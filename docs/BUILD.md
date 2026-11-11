@@ -87,12 +87,12 @@
 
 ## 7. 发布
 
-- [ ] 公钥按 apk 格式写入 `keys/yun-feed.rsa.pub`：首行 `untrusted comment: ...`，
-      次行为 `public-key.pem` 的 base64
+- [ ] 公钥写入 `keys/yun-feed.rsa.pub`，内容为 **PEM**（`-----BEGIN PUBLIC KEY-----`）。
+      apk 3.0.7 不认 usign 的两行 `untrusted comment:` 格式，实测会报 `UNTRUSTED signature`
 - [ ] 把 `packages.adb` 与 `*.apk` 放到本仓库 `<arch>/` 目录
 - [ ] 更新 `src.lock`：记录三个包的上游 commit 与 `PKG_VERSION` / `PKG_RELEASE`
 - [ ] `git add` 后检查一遍没有把 `*.pem` / `*.key` 带进来
-- [ ] 推送后等 GitHub Pages 生效（**计划中**，目前未启用 Pages）
+- [ ] 推送后等 GitHub Pages 生效（从 `main` 根目录发布，`.nojekyll` 必须在）
 
 ## 8. 版本递增规则
 
@@ -104,7 +104,7 @@
 
 ## 9. 失败排查顺序
 
-1. `apk update` 报 `UNTRUSTED signature` → 公钥没放对，或文件名不以 `.rsa.pub` 结尾
+1. `apk update` 报 `UNTRUSTED signature` → 公钥内容不是 PEM，或没放进 `/etc/apk/keys/`
 2. `apk update` 报 `BAD signature` → 索引被改过，或签名时用的不是同一把私钥
 3. `apk add` 报缺依赖 → 依赖包不在任何已启用源里，先确认 `feeds.conf` 与 `packages.adb` 内容
 4. 包能装但 LuCI 里看不到菜单 → 看 `/usr/share/luci/menu.d/*.json` 是否随包安装，清缓存后重登
