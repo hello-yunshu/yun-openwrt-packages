@@ -196,6 +196,7 @@ jobs:
           done
 
       - name: Commit published packages
+        shell: bash
         run: |
           set -e
           cd "$GITHUB_WORKSPACE"
