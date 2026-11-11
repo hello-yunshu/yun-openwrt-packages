@@ -30,6 +30,10 @@ jobs:
             repo: https://github.com/hello-yunshu/luci-app-upnp-nat-relay.git
             ref: d8a3a9e9a9a37403fd1086315409d91a5c04a67c
             path: package/luci-app-upnp-nat-relay
+          - name: luci-app-openclash
+            repo: https://github.com/vernesong/OpenClash.git
+            ref: e553e82e01c697aefbe1555261a503f425e00ccd
+            path: luci-app-openclash
     runs-on: ubuntu-24.04
     container:
       image: ghcr.io/openwrt/sdk:${{ matrix.arch }}-v25.12.0
