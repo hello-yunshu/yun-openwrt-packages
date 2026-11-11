@@ -162,6 +162,10 @@ jobs:
     container:
       image: ghcr.io/openwrt/sdk:x86_64-v25.12.0
       options: --user root
+    # sdk 镜像自带 WORKDIR /builder，不显式指定就会在 /builder 里落盘/提交
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
