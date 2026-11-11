@@ -178,25 +178,29 @@ jobs:
           APK_PRIVATE_KEY: ${{ secrets.APK_PRIVATE_KEY }}
         run: |
           set -e
+          cd "$GITHUB_WORKSPACE"
           printf '%s' "$APK_PRIVATE_KEY" | base64 -d > "$RUNNER_TEMP/private-key.pem"
           chmod 600 "$RUNNER_TEMP/private-key.pem"
           APK_BIN=/builder/staging_dir/host/bin/apk
           KEYS_DIR="$GITHUB_WORKSPACE/keys"
           for arch in x86_64 aarch64_generic; do
-            mkdir -p "$arch"
-            find "$RUNNER_TEMP/artifacts" -path "*/pkg-$arch-*/*.apk" -exec cp -v {} "$arch/" \;
-            for f in "$arch"/*.apk; do
+            mkdir -p "$GITHUB_WORKSPACE/$arch"
+            find "$RUNNER_TEMP/artifacts" -path "*/pkg-$arch-*/*.apk" -exec cp -v {} "$GITHUB_WORKSPACE/$arch/" \;
+            for f in "$GITHUB_WORKSPACE/$arch"/*.apk; do
               "$APK_BIN" --keys-dir "$KEYS_DIR" verify "$f"
             done
             "$APK_BIN" mkndx --allow-untrusted --keys-dir "$KEYS_DIR" \
               --sign-key "$RUNNER_TEMP/private-key.pem" \
-              --output "$arch/packages.adb" "$arch"/*.apk
-            ls -l "$arch"
+              --output "$GITHUB_WORKSPACE/$arch/packages.adb" "$GITHUB_WORKSPACE/$arch"/*.apk
+            ls -l "$GITHUB_WORKSPACE/$arch"
           done
 
       - name: Commit published packages
         run: |
           set -e
+          cd "$GITHUB_WORKSPACE"
+          pwd
+          git rev-parse --show-toplevel
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A x86_64 aarch64_generic
