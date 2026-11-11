@@ -1,0 +1,11 @@
+# src.lock — 上游来源与版本锁定
+#
+# 用途：记录每个包对应的上游仓库与固定 commit，使构建可复现。
+# 格式：<包名> <来源类型> <仓库 URL> <commit SHA> [PKG_VERSION-rRELEASE]
+# 规则：
+#   - ref 一律写完整 commit SHA，不写分支名或 tag（上游可能移动）
+#   - 每次重新编包都要更新本文件，并与 packages.adb 同一次提交
+#
+# 当前为空：尚未发布任何包。
+
+# <包名> <git> <https://github.com/owner/repo> <sha> <version-rrelease>
