@@ -2,23 +2,25 @@
 
 存放本 feed 的**签名公钥**，供设备端校验索引与包。
 
-## 约定
+## 格式（实测结论）
 
-- 文件名必须以 `.rsa.pub` 结尾，apk 才会把它当作公钥加载
-- 文件格式为两行：
+apk-tools 3.0.7 只按 **PEM** 解析公钥文件，文件名后缀它并不关心。
+实测对照（同一把 EC P-256 私钥签出的包）：
 
-  ```
-  untrusted comment: yun-openwrt-packages signing key
-  <public-key.pem 的 base64>
-  ```
+| 公钥文件内容 | `apk verify` 结果 |
+| --- | --- |
+| 两行 usign 风格（`untrusted comment:` + base64） | `UNTRUSTED signature` |
+| PEM（`-----BEGIN PUBLIC KEY-----`） | `OK` |
 
-  第二行是 PEM 公钥整体（含 `-----BEGIN PUBLIC KEY-----`）的 base64，不是裸 DER
+因此这里放的是 PEM 公钥；文件名保留 `.rsa.pub` 后缀只是为了和设备上
+`/etc/apk/keys/` 的命名习惯一致（OpenWrt 25.12 官方 rootfs 里是
+`/etc/apk/keys/openwrt-25.12.pem`，PEM 内容）。
 
 ## 当前状态
 
 `yun-feed.rsa.pub` 已就位，用于校验本 feed 的索引与包。
 
-公钥指纹（SHA-256）：
+公钥指纹（SHA-256，DER SubjectPublicKeyInfo）：
 
 ```
 034b7366bb288d13e0fa9f1b5d6d93c4883be492213a1bcb3e6eeb8402a1a550

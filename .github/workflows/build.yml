@@ -43,8 +43,9 @@ jobs:
           echo "${{ matrix.sha256 }}  ${{ matrix.sdk }}" | sha256sum -c -
           tar --zstd -xf "${{ matrix.sdk }}"
           SDK=$(find "$RUNNER_TEMP" -maxdepth 1 -type d -name 'openwrt-sdk-*' | head -1)
+          test -n "$SDK"
           echo "SDK=$SDK" >> "$GITHUB_ENV"
-          ls -l "$SDK/staging_dir/host/bin/apk" || echo "HOST_APK_MISSING"
+          ls -l "$SDK/staging_dir/host/bin/apk"
 
       - name: Install feeds and package sources
         run: |
@@ -54,6 +55,7 @@ jobs:
           git clone --depth 1 "$PKG_REPO" "$RUNNER_TEMP/src"
           rm -rf "package/$PKG_NAME"
           cp -r "$RUNNER_TEMP/src/package/$PKG_NAME" "package/$PKG_NAME"
+          test -f "package/$PKG_NAME/Makefile"
 
       - name: Prepare signing keys
         env:
@@ -62,40 +64,57 @@ jobs:
           cd "$SDK"
           printf '%s' "$APK_PRIVATE_KEY" | base64 -d > private-key.pem
           chmod 600 private-key.pem
-          sed -n '2p' "$GITHUB_WORKSPACE/keys/yun-feed.rsa.pub" | base64 -d > public-key.pem
           test -s private-key.pem
-          test -s public-key.pem
+          head -1 private-key.pem | grep -q 'BEGIN .*PRIVATE KEY'
+          mkdir -p "$RUNNER_TEMP/keys"
+          cp "$GITHUB_WORKSPACE/keys/yun-feed.rsa.pub" "$RUNNER_TEMP/keys/yun-feed.rsa.pub"
+          grep -q 'BEGIN PUBLIC KEY' "$RUNNER_TEMP/keys/yun-feed.rsa.pub"
+          echo "private key bytes: $(wc -c < private-key.pem)"
 
-      - name: Create config and enable per-package signing
+      - name: Configure
         run: |
           cd "$SDK"
           make defconfig </dev/null
-          echo 'CONFIG_SIGN_EACH_PACKAGE=y' >> .config
-          make defconfig </dev/null
-          grep -q '^CONFIG_SIGN_EACH_PACKAGE=y' .config
+
+      - name: Enable per-package signing
+        run: |
+          cd "$SDK"
+          python3 - <<'PY'
+          import pathlib, sys
+          p = pathlib.Path('include/package-pack.mk')
+          s = p.read_text()
+          needle = '\t  --files "$$(IDIR_$(1))" \\\n'
+          if needle not in s:
+              sys.exit('package-pack.mk: mkpkg --files line not found')
+          if 'private-key.pem' in s:
+              sys.exit('package-pack.mk: already patched')
+          s = s.replace(needle, needle + '\t  --sign "$(TOPDIR)/private-key.pem" \\\n', 1)
+          p.write_text(s)
+          PY
+          grep -n -B1 -A1 'private-key.pem' include/package-pack.mk
 
       - name: Build po2lmo host tool
         run: |
           cd "$SDK"
-          make package/luci-base/host/compile V=s -j"$(nproc)" </dev/null
+          make package/feeds/luci/luci-base/host/compile V=s -j"$(nproc)" </dev/null
           test -x staging_dir/hostpkg/bin/po2lmo
-          echo "po2lmo OK"
+          echo "po2lmo OK: $(staging_dir/hostpkg/bin/po2lmo 2>&1 | head -1)"
 
       - name: Build package
         run: |
           cd "$SDK"
-          make "package/$PKG_NAME/compile" V=s -j"$(nproc)"
+          make "package/$PKG_NAME/compile" V=s -j"$(nproc)" </dev/null
 
       - name: Verify lmo inside staged package tree
         run: |
           cd "$SDK"
           set -e
-          LMO=$(find build_dir -path "*$PKG_NAME*" -name '*.lmo' | head -5)
+          LMO=$(find build_dir -path "*$PKG_NAME*" -name '*.lmo')
           echo "$LMO"
           test -n "$LMO"
           find build_dir -path "*$PKG_NAME*ipkg*" -type d -name i18n -exec ls -l {} \;
 
-      - name: Sign index and verify packages
+      - name: Verify signatures and build index
         run: |
           cd "$SDK"
           set -e
@@ -104,11 +123,12 @@ jobs:
           OUT="$RUNNER_TEMP/out/${{ matrix.arch }}"
           mkdir -p "$OUT"
           find bin/packages -name '*.apk' -exec cp -v {} "$OUT/" \;
+          test -n "$(ls "$OUT"/*.apk)"
           for f in "$OUT"/*.apk; do
-            "$APK_BIN" --keys-dir "$GITHUB_WORKSPACE/keys" verify "$f"
+            "$APK_BIN" --keys-dir "$RUNNER_TEMP/keys" verify "$f"
           done
-          "$APK_BIN" mkndx --keys-dir "$GITHUB_WORKSPACE/keys" \
-            --sign private-key.pem --allow-untrusted \
+          "$APK_BIN" mkndx --allow-untrusted --keys-dir "$RUNNER_TEMP/keys" \
+            --sign-key private-key.pem \
             --output "$OUT/packages.adb" "$OUT"/*.apk
           ls -l "$OUT"
 
