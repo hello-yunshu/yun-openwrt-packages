@@ -106,7 +106,7 @@ jobs:
           test -x "$APK_BIN"
           OUT="$RUNNER_TEMP/out/${{ matrix.arch }}"
           mkdir -p "$OUT"
-          find bin/packages -name '*.apk' -exec cp -v {} "$OUT/" \;
+          find bin/packages -name "$PKG_NAME-*.apk" -exec cp -v {} "$OUT/" \;
           test -n "$(ls "$OUT"/*.apk)"
           for f in "$OUT"/*.apk; do
             "$APK_BIN" --keys-dir "$RUNNER_TEMP/keys" verify "$f"
@@ -130,11 +130,13 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           path: ${{ runner.temp }}/artifacts
-          merge-multiple: true
       - name: Commit published packages
         run: |
           set -e
-          cp -rv "$RUNNER_TEMP"/artifacts/. .
+          for arch in x86_64 aarch64_generic; do
+            mkdir -p "$arch"
+            cp -v "$RUNNER_TEMP/artifacts/pkgs-$arch/"* "$arch/"
+          done
           ls -l x86_64 aarch64_generic
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
