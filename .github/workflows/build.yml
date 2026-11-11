@@ -66,20 +66,20 @@ jobs:
           test -s private-key.pem
           test -s public-key.pem
 
+      - name: Create config and enable per-package signing
+        run: |
+          cd "$SDK"
+          make defconfig </dev/null
+          echo 'CONFIG_SIGN_EACH_PACKAGE=y' >> .config
+          make defconfig </dev/null
+          grep -q '^CONFIG_SIGN_EACH_PACKAGE=y' .config
+
       - name: Build po2lmo host tool
         run: |
           cd "$SDK"
-          make package/luci-base/host/compile V=s -j"$(nproc)"
+          make package/luci-base/host/compile V=s -j"$(nproc)" </dev/null
           test -x staging_dir/hostpkg/bin/po2lmo
           echo "po2lmo OK"
-
-      - name: Enable per-package signing
-        run: |
-          cd "$SDK"
-          make defconfig
-          echo 'CONFIG_SIGN_EACH_PACKAGE=y' >> .config
-          make defconfig
-          grep -q '^CONFIG_SIGN_EACH_PACKAGE=y' .config
 
       - name: Build package
         run: |
