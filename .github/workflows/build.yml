@@ -18,67 +18,51 @@ jobs:
       matrix:
         include:
           - arch: x86_64
-            target: x86/64
-            sdk: openwrt-sdk-25.12.0-x86-64_gcc-14.3.0_musl.Linux-x86_64.tar.zst
-            sha256: 9f371906ce6d2f95418f69fac06df58bf9df0ffc4abed6206c30f1b547fcfc12
           - arch: aarch64_generic
-            target: rockchip/armv8
-            sdk: openwrt-sdk-25.12.0-rockchip-armv8_gcc-14.3.0_musl.Linux-x86_64.tar.zst
-            sha256: 8775b11b55bbc139af92abf692ea5248dfa364581fa0e97ee79f66ff24ce2c4d
     runs-on: ubuntu-24.04
+    container:
+      image: ghcr.io/openwrt/sdk:${{ matrix.arch }}-v25.12.0
+      options: --user root
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install host dependencies
+      - name: Update feeds and install dependencies
+        working-directory: /builder
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq build-essential clang flex bison g++ gawk \
-            gettext git libncurses-dev libssl-dev python3-setuptools rsync swig \
-            unzip zlib1g-dev file libelf-dev zstd wget
+          ./scripts/feeds update base packages luci
+          ./scripts/feeds install luci-base miniupnpc nftables coreutils-timeout flock
 
-      - name: Fetch and verify SDK
+      - name: Prepare package source
+        working-directory: /builder
         run: |
-          cd "$RUNNER_TEMP"
-          curl -fLO "https://downloads.openwrt.org/releases/${{ env.RELEASE }}/targets/${{ matrix.target }}/${{ matrix.sdk }}"
-          echo "${{ matrix.sha256 }}  ${{ matrix.sdk }}" | sha256sum -c -
-          tar --zstd -xf "${{ matrix.sdk }}"
-          SDK=$(find "$RUNNER_TEMP" -maxdepth 1 -type d -name 'openwrt-sdk-*' | head -1)
-          test -n "$SDK"
-          echo "SDK=$SDK" >> "$GITHUB_ENV"
-          ls -l "$SDK/staging_dir/host/bin/apk"
-
-      - name: Install feeds and package sources
-        run: |
-          cd "$SDK"
-          ./scripts/feeds update packages luci
-          ./scripts/feeds install -a -p packages -p luci
-          git clone --depth 1 "$PKG_REPO" "$RUNNER_TEMP/src"
+          git clone --depth 1 "$PKG_REPO" /tmp/src
           rm -rf "package/$PKG_NAME"
-          cp -r "$RUNNER_TEMP/src/package/$PKG_NAME" "package/$PKG_NAME"
+          cp -r "/tmp/src/package/$PKG_NAME" "package/$PKG_NAME"
           test -f "package/$PKG_NAME/Makefile"
 
+      - name: Configure
+        working-directory: /builder
+        run: |
+          echo "CONFIG_PACKAGE_$PKG_NAME=y" >> .config
+          make defconfig </dev/null
+
       - name: Prepare signing keys
+        working-directory: /builder
         env:
           APK_PRIVATE_KEY: ${{ secrets.APK_PRIVATE_KEY }}
         run: |
-          cd "$SDK"
           printf '%s' "$APK_PRIVATE_KEY" | base64 -d > private-key.pem
           chmod 600 private-key.pem
           test -s private-key.pem
           head -1 private-key.pem | grep -q 'BEGIN .*PRIVATE KEY'
           mkdir -p "$RUNNER_TEMP/keys"
-          cp "$GITHUB_WORKSPACE/keys/yun-feed.rsa.pub" "$RUNNER_TEMP/keys/yun-feed.rsa.pub"
+          cp "$GITHUB_WORKSPACE/keys/yun-feed.rsa.pub" "$RUNNER_TEMP/keys/"
           grep -q 'BEGIN PUBLIC KEY' "$RUNNER_TEMP/keys/yun-feed.rsa.pub"
           echo "private key bytes: $(wc -c < private-key.pem)"
 
-      - name: Configure
-        run: |
-          cd "$SDK"
-          make defconfig </dev/null
-
       - name: Enable per-package signing
+        working-directory: /builder
         run: |
-          cd "$SDK"
           python3 - <<'PY'
           import pathlib, sys
           p = pathlib.Path('include/package-pack.mk')
@@ -94,20 +78,20 @@ jobs:
           grep -n -B1 -A1 'private-key.pem' include/package-pack.mk
 
       - name: Build po2lmo host tool
+        working-directory: /builder
         run: |
-          cd "$SDK"
           make package/feeds/luci/luci-base/host/compile V=s -j"$(nproc)" </dev/null
           test -x staging_dir/hostpkg/bin/po2lmo
-          echo "po2lmo OK: $(staging_dir/hostpkg/bin/po2lmo 2>&1 | head -1)"
+          echo "po2lmo present"
 
       - name: Build package
+        working-directory: /builder
         run: |
-          cd "$SDK"
           make "package/$PKG_NAME/compile" V=s -j"$(nproc)" </dev/null
 
       - name: Verify lmo inside staged package tree
+        working-directory: /builder
         run: |
-          cd "$SDK"
           set -e
           LMO=$(find build_dir -path "*$PKG_NAME*" -name '*.lmo')
           echo "$LMO"
@@ -115,8 +99,8 @@ jobs:
           find build_dir -path "*$PKG_NAME*ipkg*" -type d -name i18n -exec ls -l {} \;
 
       - name: Verify signatures and build index
+        working-directory: /builder
         run: |
-          cd "$SDK"
           set -e
           APK_BIN=staging_dir/host/bin/apk
           test -x "$APK_BIN"
