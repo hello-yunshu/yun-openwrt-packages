@@ -56,8 +56,14 @@ jobs:
           PKG_NAME: ${{ matrix.package.name }}
           PKG_PATH: ${{ matrix.package.path }}
         run: |
-          git clone "$PKG_REPO" /tmp/src
-          git -C /tmp/src checkout --detach "$PKG_REF"
+          rm -rf /tmp/src
+          git init -q /tmp/src
+          git -C /tmp/src remote add origin "$PKG_REPO"
+          # 先浅取指定提交；部分仓库全量历史很大（如 OpenClash），浅取能省掉十几分钟
+          if ! git -C /tmp/src fetch -q --depth 1 origin "$PKG_REF"; then
+            git -C /tmp/src fetch -q origin "$PKG_REF"
+          fi
+          git -C /tmp/src checkout -q --detach FETCH_HEAD
           rm -rf "package/$PKG_NAME"
           mkdir -p "package/$PKG_NAME"
           cp -a "/tmp/src/$PKG_PATH/." "package/$PKG_NAME/"
