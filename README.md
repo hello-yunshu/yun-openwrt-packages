@@ -95,7 +95,13 @@ sed -n '2p' keys/yun-feed.rsa.pub | base64 -d \
   | openssl pkey -pubin -outform DER | openssl dgst -sha256
 ```
 
-结果与发布页公布的指纹比对，一致才继续。
+结果与下方指纹比对，一致才继续。
+
+当前公钥指纹（SHA-256）：
+
+```
+034b7366bb288d13e0fa9f1b5d6d93c4883be492213a1bcb3e6eeb8402a1a550
+```
 
 **单个包是否被替换**：
 
