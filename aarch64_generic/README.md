@@ -11,4 +11,4 @@ aarch64_generic 架构的包与索引。
 
 空目录，尚未发布任何包。
 
-设备端引用地址（GitHub Pages 启用后）：`.../yun-openwrt-feed/aarch64_generic/packages.adb`
+设备端引用地址（GitHub Pages 启用后）：`.../yun-openwrt-packages/aarch64_generic/packages.adb`

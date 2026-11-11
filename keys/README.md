@@ -8,7 +8,7 @@
 - 文件格式为两行：
 
   ```
-  untrusted comment: yun-openwrt-feed signing key
+  untrusted comment: yun-openwrt-packages signing key
   <public-key.pem 的 base64>
   ```
 
