@@ -200,6 +200,8 @@ jobs:
           set -e
           cd "$GITHUB_WORKSPACE"
           pwd
+          # checkout 以 runner 用户落盘，容器内是 root，需显式放行归属
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
           git rev-parse --show-toplevel
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
