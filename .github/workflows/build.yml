@@ -8,17 +8,28 @@ permissions:
 
 env:
   RELEASE: "25.12.0"
-  PKG_REPO: https://github.com/hello-yunshu/luci-app-upnp-nat-relay.git
-  PKG_NAME: luci-app-upnp-nat-relay
 
 jobs:
   build:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - arch: x86_64
-          - arch: aarch64_generic
+        arch:
+          - x86_64
+          - aarch64_generic
+        package:
+          - name: luci-app-nginx-manager
+            repo: https://github.com/hello-yunshu/luci-app-nginx-manager.git
+            ref: 3f3bf4dbf5d90b9c69ffb6565eea79c4205bf948
+            path: .
+          - name: luci-app-cloudflare-ip
+            repo: https://github.com/hello-yunshu/luci-app-cloudflare-ip.git
+            ref: b674b6e6a2cd50e20dcbfde0d620b2de5a9b30dd
+            path: package/luci-app-cloudflare-ip
+          - name: luci-app-upnp-nat-relay
+            repo: https://github.com/hello-yunshu/luci-app-upnp-nat-relay.git
+            ref: d8a3a9e9a9a37403fd1086315409d91a5c04a67c
+            path: package/luci-app-upnp-nat-relay
     runs-on: ubuntu-24.04
     container:
       image: ghcr.io/openwrt/sdk:${{ matrix.arch }}-v25.12.0
@@ -26,24 +37,33 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Update feeds and install dependencies
+      - name: Update feeds and install build dependency
         working-directory: /builder
         run: |
+          git config --global http.version HTTP/1.1
           ./scripts/feeds update base packages luci
-          ./scripts/feeds install luci-base miniupnpc nftables coreutils-timeout flock
+          ./scripts/feeds install luci-base
 
       - name: Prepare package source
         working-directory: /builder
+        env:
+          PKG_REPO: ${{ matrix.package.repo }}
+          PKG_REF: ${{ matrix.package.ref }}
+          PKG_NAME: ${{ matrix.package.name }}
+          PKG_PATH: ${{ matrix.package.path }}
         run: |
-          git clone --depth 1 "$PKG_REPO" /tmp/src
+          git clone "$PKG_REPO" /tmp/src
+          git -C /tmp/src checkout --detach "$PKG_REF"
           rm -rf "package/$PKG_NAME"
-          cp -r "/tmp/src/package/$PKG_NAME" "package/$PKG_NAME"
+          mkdir -p "package/$PKG_NAME"
+          cp -a "/tmp/src/$PKG_PATH/." "package/$PKG_NAME/"
           test -f "package/$PKG_NAME/Makefile"
+          grep -E '^(PKG_NAME|PKG_VERSION|PKG_RELEASE):=' "package/$PKG_NAME/Makefile"
 
       - name: Configure
         working-directory: /builder
         run: |
-          echo "CONFIG_PACKAGE_$PKG_NAME=y" >> .config
+          echo "CONFIG_PACKAGE_${{ matrix.package.name }}=y" >> .config
           make defconfig </dev/null
 
       - name: Prepare signing keys
@@ -87,57 +107,81 @@ jobs:
       - name: Build package
         working-directory: /builder
         run: |
-          make "package/$PKG_NAME/compile" V=s -j"$(nproc)" </dev/null
+          make "package/${{ matrix.package.name }}/compile" V=s -j"$(nproc)" </dev/null
 
       - name: Verify lmo inside staged package tree
         working-directory: /builder
+        env:
+          PKG_NAME: ${{ matrix.package.name }}
         run: |
           set -e
+          if ! find "package/$PKG_NAME" -maxdepth 2 -type d -name po | grep -q .; then
+            echo "package ships no translations, skipping lmo check"
+            exit 0
+          fi
           LMO=$(find build_dir -path "*$PKG_NAME*" -name '*.lmo')
           echo "$LMO"
           test -n "$LMO"
-          find build_dir -path "*$PKG_NAME*ipkg*" -type d -name i18n -exec ls -l {} \;
 
-      - name: Verify signatures and build index
+      - name: Verify signatures and collect package
         working-directory: /builder
+        env:
+          PKG_NAME: ${{ matrix.package.name }}
         run: |
           set -e
           APK_BIN=staging_dir/host/bin/apk
           test -x "$APK_BIN"
           OUT="$RUNNER_TEMP/out/${{ matrix.arch }}"
           mkdir -p "$OUT"
-          find bin/packages -name "$PKG_NAME-*.apk" -exec cp -v {} "$OUT/" \;
+          find bin/packages -name "$PKG_NAME-[0-9]*.apk" -exec cp -v {} "$OUT/" \;
           test -n "$(ls "$OUT"/*.apk)"
           for f in "$OUT"/*.apk; do
             "$APK_BIN" --keys-dir "$RUNNER_TEMP/keys" verify "$f"
           done
-          "$APK_BIN" mkndx --allow-untrusted --keys-dir "$RUNNER_TEMP/keys" \
-            --sign-key private-key.pem \
-            --output "$OUT/packages.adb" "$OUT"/*.apk
           ls -l "$OUT"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: pkgs-${{ matrix.arch }}
+          name: pkg-${{ matrix.arch }}-${{ matrix.package.name }}
           path: ${{ runner.temp }}/out/${{ matrix.arch }}
           if-no-files-found: error
 
   publish:
     needs: build
     runs-on: ubuntu-24.04
+    container:
+      image: ghcr.io/openwrt/sdk:x86_64-v25.12.0
+      options: --user root
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
+          pattern: pkg-*
           path: ${{ runner.temp }}/artifacts
+
+      - name: Rebuild signed indexes
+        env:
+          APK_PRIVATE_KEY: ${{ secrets.APK_PRIVATE_KEY }}
+        run: |
+          set -e
+          printf '%s' "$APK_PRIVATE_KEY" | base64 -d > "$RUNNER_TEMP/private-key.pem"
+          chmod 600 "$RUNNER_TEMP/private-key.pem"
+          APK_BIN=/builder/staging_dir/host/bin/apk
+          for arch in x86_64 aarch64_generic; do
+            mkdir -p "$arch"
+            find "$RUNNER_TEMP/artifacts" -path "*/pkg-$arch-*/*.apk" -exec cp -v {} "$arch/" \;
+            for f in "$arch"/*.apk; do
+              "$APK_BIN" --keys-dir keys verify "$f"
+            done
+            "$APK_BIN" mkndx --allow-untrusted --keys-dir keys \
+              --sign-key "$RUNNER_TEMP/private-key.pem" \
+              --output "$arch/packages.adb" "$arch"/*.apk
+            ls -l "$arch"
+          done
+
       - name: Commit published packages
         run: |
           set -e
-          for arch in x86_64 aarch64_generic; do
-            mkdir -p "$arch"
-            cp -v "$RUNNER_TEMP/artifacts/pkgs-$arch/"* "$arch/"
-          done
-          ls -l x86_64 aarch64_generic
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A x86_64 aarch64_generic

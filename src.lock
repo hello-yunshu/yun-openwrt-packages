@@ -1,11 +1,13 @@
 # src.lock — 上游来源与版本锁定
 #
 # 用途：记录每个包对应的上游仓库与固定 commit，使构建可复现。
-# 格式：<包名> <来源类型> <仓库 URL> <commit SHA> [PKG_VERSION-rRELEASE]
+# 格式：<包名> <来源类型> <仓库 URL> <commit SHA> <PKG_VERSION-rRELEASE>
 # 规则：
 #   - ref 一律写完整 commit SHA，不写分支名或 tag（上游可能移动）
 #   - 每次重新编包都要更新本文件，并与 packages.adb 同一次提交
 #
-# 当前为空：尚未发布任何包。
+# 当前已发布（x86_64 与 aarch64_generic 两个索引，包本身为 arch: noarch）
 
-# <包名> <git> <https://github.com/owner/repo> <sha> <version-rrelease>
+luci-app-nginx-manager git https://github.com/hello-yunshu/luci-app-nginx-manager.git 3f3bf4dbf5d90b9c69ffb6565eea79c4205bf948 1.8.8-r1
+luci-app-cloudflare-ip git https://github.com/hello-yunshu/luci-app-cloudflare-ip.git b674b6e6a2cd50e20dcbfde0d620b2de5a9b30dd 2.6.0-r13
+luci-app-upnp-nat-relay git https://github.com/hello-yunshu/luci-app-upnp-nat-relay.git d8a3a9e9a9a37403fd1086315409d91a5c04a67c 1.3.13-r4
