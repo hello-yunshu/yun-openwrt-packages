@@ -1,4 +1,4 @@
-# yun-openwrt-feed
+# yun-openwrt-packages
 
 面向 **OpenWrt 25.12**（apk-tools 3，包格式 `.apk`，索引 `packages.adb`）的私有 APK 软件源。
 
@@ -41,11 +41,11 @@
 # 1. 放入本仓库公钥（文件名必须以 .rsa.pub 结尾，apk 才会加载）
 mkdir -p /etc/apk/keys
 wget -O /etc/apk/keys/yun-feed.rsa.pub \
-  https://raw.githubusercontent.com/hello-yunshu/yun-openwrt-feed/main/keys/yun-feed.rsa.pub
+  https://raw.githubusercontent.com/hello-yunshu/yun-openwrt-packages/main/keys/yun-feed.rsa.pub
 
 # 2. 添加软件源（x86_64 为例，ARM 设备换成 aarch64_generic）
 mkdir -p /etc/apk/repositories.d
-echo "https://hello-yunshu.github.io/yun-openwrt-feed/x86_64/packages.adb" \
+echo "https://hello-yunshu.github.io/yun-openwrt-packages/x86_64/packages.adb" \
   > /etc/apk/repositories.d/yun-feed.list
 
 # 3. 刷新并安装

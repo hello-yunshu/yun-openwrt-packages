@@ -11,4 +11,4 @@ x86_64 架构的包与索引。
 
 空目录，尚未发布任何包。
 
-设备端引用地址（GitHub Pages 启用后）：`.../yun-openwrt-feed/x86_64/packages.adb`
+设备端引用地址（GitHub Pages 启用后）：`.../yun-openwrt-packages/x86_64/packages.adb`
