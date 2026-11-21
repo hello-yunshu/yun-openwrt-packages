@@ -1,215 +1,523 @@
-name: build-packages
+name: Build unified OpenWrt feed candidate
 
 on:
   workflow_dispatch:
+    inputs:
+      scope:
+        description: Build only packages with immutable source locks, or require the entire supported package matrix.
+        required: true
+        type: choice
+        options:
+          - available-only
+          - all-required
+        default: available-only
+      publish:
+        description: Deploy the candidate to GitHub Pages after every qualification and signature gate passes.
+        required: true
+        type: boolean
+        default: false
 
 permissions:
-  contents: write
+  contents: read
+  actions: read
 
-env:
-  RELEASE: "25.12.0"
+concurrency:
+  group: yun-feed-candidate-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  build:
+  prepare:
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+      runtime_matrix: ${{ steps.matrix.outputs.runtime_matrix }}
+      runtime_count: ${{ steps.matrix.outputs.runtime_count }}
+      index_matrix: ${{ steps.matrix.outputs.index_matrix }}
+      packages: ${{ steps.matrix.outputs.packages }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Validate support and immutable source locks
+        id: matrix
+        env:
+          SCOPE: ${{ inputs.scope }}
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_*.py'
+          python3 scripts/validate_mainstream_support.py
+          python3 scripts/build_matrix.py --scope "$SCOPE" --github-output "$GITHUB_OUTPUT"
+
+  build-package:
+    name: ${{ matrix.package }} / ${{ matrix.openwrtVersion }} / ${{ matrix.packageArch }}
+    needs: prepare
+    if: ${{ needs.prepare.result == 'success' }}
     strategy:
       fail-fast: false
-      matrix:
-        arch:
-          - x86_64
-          - aarch64_generic
-        package:
-          - name: luci-app-nginx-manager
-            repo: https://github.com/hello-yunshu/luci-app-nginx-manager.git
-            ref: 3f3bf4dbf5d90b9c69ffb6565eea79c4205bf948
-            path: .
-          - name: luci-app-cloudflare-ip
-            repo: https://github.com/hello-yunshu/luci-app-cloudflare-ip.git
-            ref: b674b6e6a2cd50e20dcbfde0d620b2de5a9b30dd
-            path: package/luci-app-cloudflare-ip
-          - name: luci-app-upnp-nat-relay
-            repo: https://github.com/hello-yunshu/luci-app-upnp-nat-relay.git
-            ref: d8a3a9e9a9a37403fd1086315409d91a5c04a67c
-            path: package/luci-app-upnp-nat-relay
-          - name: luci-app-openclash
-            repo: https://github.com/vernesong/OpenClash.git
-            ref: e553e82e01c697aefbe1555261a503f425e00ccd
-            path: luci-app-openclash
+      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/openwrt/sdk:${{ matrix.arch }}-v25.12.0
+      image: ghcr.io/openwrt/sdk:${{ matrix.sdkTag }}
       options: --user root
+    defaults:
+      run:
+        shell: bash
+        working-directory: ${{ github.workspace }}
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Update feeds and install build dependency
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Prepare OpenWrt feeds
         working-directory: /builder
         run: |
+          set -euo pipefail
           git config --global http.version HTTP/1.1
           ./scripts/feeds update base packages luci
-          ./scripts/feeds install luci-base
-
-      - name: Prepare package source
+          ./scripts/feeds install luci-base rust
+      - name: Fetch and verify package source commit
         working-directory: /builder
         env:
-          PKG_REPO: ${{ matrix.package.repo }}
-          PKG_REF: ${{ matrix.package.ref }}
-          PKG_NAME: ${{ matrix.package.name }}
-          PKG_PATH: ${{ matrix.package.path }}
+          PKG_REPOSITORY: ${{ matrix.repository }}
+          PKG_REF: ${{ matrix.sourceRef }}
+          PKG_SOURCE_PATH: ${{ matrix.sourcePath }}
+          PKG_NAME: ${{ matrix.package }}
+          EXPECTED_PACKAGE_VERSION: ${{ matrix.expectedPackageVersion }}
+          RILL_SOURCE_COMMIT: ${{ matrix.rillSourceCommit }}
         run: |
-          rm -rf /tmp/src
-          git init -q /tmp/src
-          git -C /tmp/src remote add origin "$PKG_REPO"
-          # 先浅取指定提交；部分仓库全量历史很大（如 OpenClash），浅取能省掉十几分钟
-          if ! git -C /tmp/src fetch -q --depth 1 origin "$PKG_REF"; then
-            git -C /tmp/src fetch -q origin "$PKG_REF"
-          fi
-          git -C /tmp/src checkout -q --detach FETCH_HEAD
-          rm -rf "package/$PKG_NAME"
-          mkdir -p "package/$PKG_NAME"
-          cp -a "/tmp/src/$PKG_PATH/." "package/$PKG_NAME/"
+          set -euo pipefail
+          [[ "$PKG_REF" =~ ^[0-9a-f]{40}$ ]]
+          mkdir -p package/"$PKG_NAME"
+          git -c init.defaultBranch=main init -q /tmp/pkg-src
+          git -C /tmp/pkg-src remote add origin "$PKG_REPOSITORY"
+          git -C /tmp/pkg-src fetch -q --depth 1 origin "$PKG_REF"
+          git -C /tmp/pkg-src checkout -q --detach FETCH_HEAD
+          test "$(git -C /tmp/pkg-src rev-parse HEAD)" = "$PKG_REF"
+          cp -a "/tmp/pkg-src/$PKG_SOURCE_PATH/." "package/$PKG_NAME/"
           test -f "package/$PKG_NAME/Makefile"
-          grep -E '^(PKG_NAME|PKG_VERSION|PKG_RELEASE):=' "package/$PKG_NAME/Makefile"
-
-      - name: Configure
-        working-directory: /builder
-        run: |
-          echo "CONFIG_PACKAGE_${{ matrix.package.name }}=y" >> .config
-          make defconfig </dev/null
-
-      - name: Prepare signing keys
+          if [ -n "$EXPECTED_PACKAGE_VERSION" ]; then
+            source_version=$(sed -n 's/^PKG_VERSION:=//p' "package/$PKG_NAME/Makefile" | head -n1)
+            test "$source_version" = "$EXPECTED_PACKAGE_VERSION"
+          fi
+          if [[ "$PKG_NAME" == "luci-app-performance-manager-all" ]]; then
+            # The single user package Makefile consumes source files from the
+            # old repository layout. Stage those data directories only; do
+            # not copy any split-package Makefile or build recipe.
+            mkdir -p package/luci-app-performance-manager package/performance-manager/files package/performance-manager-rill/files
+            for subtree in htdocs po root; do
+              test -d "/tmp/pkg-src/package/luci-app-performance-manager/$subtree"
+              cp -a "/tmp/pkg-src/package/luci-app-performance-manager/$subtree" package/luci-app-performance-manager/
+            done
+            cp -a /tmp/pkg-src/package/performance-manager/files/. package/performance-manager/files/
+            cp -a /tmp/pkg-src/package/performance-manager-rill/files/. package/performance-manager-rill/files/
+            test ! -e package/luci-app-performance-manager/Makefile
+            test ! -e package/performance-manager/Makefile
+            test ! -e package/performance-manager-rill/Makefile
+            for required in \
+              package/luci-app-performance-manager/po/zh_Hans/performance-manager.po \
+              package/luci-app-performance-manager/htdocs/luci-static/resources/performance-manager/ui.js \
+              package/luci-app-performance-manager/root/usr/share/rpcd/acl.d/luci-app-performance-manager.json \
+              package/performance-manager/files/etc/init.d/performance-manager \
+              package/performance-manager/files/usr/sbin/performance-manager.uc \
+              package/performance-manager-rill/files/lib/upgrade/keep.d/performance-manager-rill; do
+              test -f "$required"
+            done
+          fi
+          if [[ "$PKG_NAME" == "luci-app-cloudflare-ip" || "$PKG_NAME" == "luci-app-performance-manager-all" ]]; then
+            [[ "$RILL_SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+            git -c init.defaultBranch=main init -q /tmp/rill-src
+            git -C /tmp/rill-src remote add origin https://github.com/hello-yunshu/rill-openwrt-packages.git
+            git -C /tmp/rill-src fetch -q --depth 1 origin "$RILL_SOURCE_COMMIT"
+            git -C /tmp/rill-src checkout -q --detach FETCH_HEAD
+            test "$(git -C /tmp/rill-src rev-parse HEAD)" = "$RILL_SOURCE_COMMIT"
+            for dependency in rill-runtime-manager rill-runtime; do
+              mkdir -p "package/$dependency"
+              cp -a "/tmp/rill-src/package/$dependency/." "package/$dependency/"
+            done
+          fi
+          grep -E '^(PKG_NAME|PKG_VERSION|PKG_RELEASE|PKGARCH):=' "package/$PKG_NAME/Makefile" || true
+      - name: Prepare APK signing key
+        if: ${{ matrix.packageFormat == 'apk' }}
         working-directory: /builder
         env:
-          APK_PRIVATE_KEY: ${{ secrets.APK_PRIVATE_KEY }}
+          APK_PRIVATE_KEY_BASE64: ${{ secrets.APK_PRIVATE_KEY }}
         run: |
-          printf '%s' "$APK_PRIVATE_KEY" | base64 -d > private-key.pem
+          set -euo pipefail
+          test -n "$APK_PRIVATE_KEY_BASE64"
+          printf '%s' "$APK_PRIVATE_KEY_BASE64" | base64 -d > private-key.pem
           chmod 600 private-key.pem
           test -s private-key.pem
           head -1 private-key.pem | grep -q 'BEGIN .*PRIVATE KEY'
-          mkdir -p "$RUNNER_TEMP/keys"
-          cp "$GITHUB_WORKSPACE/keys/yun-feed.rsa.pub" "$RUNNER_TEMP/keys/"
-          grep -q 'BEGIN PUBLIC KEY' "$RUNNER_TEMP/keys/yun-feed.rsa.pub"
-          echo "private key bytes: $(wc -c < private-key.pem)"
-
-      - name: Enable per-package signing
+          test -s "$GITHUB_WORKSPACE/keys/yun-feed.rsa.pub"
+      - name: Enable APK package signing
+        if: ${{ matrix.packageFormat == 'apk' }}
         working-directory: /builder
         run: |
+          set -euo pipefail
           python3 - <<'PY'
-          import pathlib, sys
-          p = pathlib.Path('include/package-pack.mk')
-          s = p.read_text()
+          import pathlib
+          path = pathlib.Path('include/package-pack.mk')
+          source = path.read_text()
           needle = '\t  --files "$$(IDIR_$(1))" \\\n'
-          if needle not in s:
-              sys.exit('package-pack.mk: mkpkg --files line not found')
-          if 'private-key.pem' in s:
-              sys.exit('package-pack.mk: already patched')
-          s = s.replace(needle, needle + '\t  --sign "$(TOPDIR)/private-key.pem" \\\n', 1)
-          p.write_text(s)
+          if 'private-key.pem' not in source:
+              if needle not in source:
+                  raise SystemExit('cannot locate apk mkpkg --files line')
+              source = source.replace(needle, needle + '\t  --sign "$(TOPDIR)/private-key.pem" \\\n', 1)
+              path.write_text(source)
           PY
-          grep -n -B1 -A1 'private-key.pem' include/package-pack.mk
-
-      - name: Build po2lmo host tool
+      - name: Configure and build package
         working-directory: /builder
+        env:
+          PKG_NAME: ${{ matrix.package }}
         run: |
+          set -euo pipefail
+          echo "CONFIG_PACKAGE_${PKG_NAME}=y" >> .config
+          make defconfig </dev/null
           make package/feeds/luci/luci-base/host/compile V=s -j"$(nproc)" </dev/null
-          test -x staging_dir/hostpkg/bin/po2lmo
-          echo "po2lmo present"
-
-      - name: Build package
-        working-directory: /builder
-        run: |
-          make "package/${{ matrix.package.name }}/compile" V=s -j"$(nproc)" </dev/null
-
-      - name: Verify lmo inside staged package tree
+          make "package/${PKG_NAME}/compile" V=s -j"$(nproc)" </dev/null
+      - name: Verify and collect exact package artifact
         working-directory: /builder
         env:
-          PKG_NAME: ${{ matrix.package.name }}
+          PKG_NAME: ${{ matrix.package }}
+          PKG_FORMAT: ${{ matrix.packageFormat }}
+          OPENWRT_VERSION: ${{ matrix.openwrtVersion }}
+          PACKAGE_ARCH: ${{ matrix.packageArch }}
+          OPENWRT_TARGET: ${{ matrix.target }}
+          OPENWRT_SUBTARGET: ${{ matrix.subtarget }}
+          SDK_TAG: ${{ matrix.sdkTag }}
+          SOURCE_REF: ${{ matrix.sourceRef }}
+          EXPECTED_PACKAGE_VERSION: ${{ matrix.expectedPackageVersion }}
         run: |
-          set -e
-          if ! find "package/$PKG_NAME" -maxdepth 2 -type d -name po | grep -q .; then
-            echo "package ships no translations, skipping lmo check"
-            exit 0
+          set -euo pipefail
+          if [ "$PKG_FORMAT" = ipk ]; then
+            package_pattern="${PKG_NAME}_*.ipk"
+          else
+            package_pattern="${PKG_NAME}-*.apk"
           fi
-          LMO=$(find build_dir -path "*$PKG_NAME*" -name '*.lmo')
-          echo "$LMO"
-          test -n "$LMO"
-
-      - name: Verify signatures and collect package
-        working-directory: /builder
-        env:
-          PKG_NAME: ${{ matrix.package.name }}
-        run: |
-          set -e
-          APK_BIN=staging_dir/host/bin/apk
-          test -x "$APK_BIN"
-          OUT="$RUNNER_TEMP/out/${{ matrix.arch }}"
-          mkdir -p "$OUT"
-          find bin/packages -name "$PKG_NAME-[0-9]*.apk" -exec cp -v {} "$OUT/" \;
-          test -n "$(ls "$OUT"/*.apk)"
-          for f in "$OUT"/*.apk; do
-            "$APK_BIN" --keys-dir "$RUNNER_TEMP/keys" verify "$f"
-          done
-          ls -l "$OUT"
-
-      - uses: actions/upload-artifact@v4
+          mapfile -t packages < <(find bin/packages -type f -name "$package_pattern" -print | sort)
+          test "${#packages[@]}" -eq 1
+          if [ -n "$EXPECTED_PACKAGE_VERSION" ]; then
+            package_file=$(basename "${packages[0]}")
+            case "$PKG_FORMAT" in
+              ipk) [[ "$package_file" == "${PKG_NAME}_${EXPECTED_PACKAGE_VERSION}_"*".ipk" || "$package_file" == "${PKG_NAME}_${EXPECTED_PACKAGE_VERSION}-r"*".ipk" ]] ;;
+              apk) [[ "$package_file" == "${PKG_NAME}-${EXPECTED_PACKAGE_VERSION}-r"*".apk" ]] ;;
+              *) exit 1 ;;
+            esac
+          fi
+          output="$RUNNER_TEMP/out/$OPENWRT_VERSION/$PACKAGE_ARCH"
+          mkdir -p "$output"
+          cp "${packages[0]}" "$output/"
+          if [ "$PKG_FORMAT" = apk ]; then
+            test -x staging_dir/host/bin/apk
+            staging_dir/host/bin/apk --keys-dir "$GITHUB_WORKSPACE/keys" verify "$output/$(basename "${packages[0]}")"
+          fi
+          PACKAGE_SHA256=$(sha256sum "$output/$(basename "${packages[0]}")" | awk '{print $1}')
+          export PKG_NAME PKG_FORMAT OPENWRT_VERSION PACKAGE_ARCH OPENWRT_TARGET OPENWRT_SUBTARGET SDK_TAG SOURCE_REF PACKAGE_SHA256 EXPECTED_PACKAGE_VERSION
+          python3 - <<'PY'
+          import json, os
+          evidence = {
+              "package": os.environ["PKG_NAME"],
+              "openwrtVersion": os.environ["OPENWRT_VERSION"],
+              "packageFormat": os.environ["PKG_FORMAT"],
+              "packageArch": os.environ["PACKAGE_ARCH"],
+              "target": os.environ["OPENWRT_TARGET"],
+              "subtarget": os.environ["OPENWRT_SUBTARGET"],
+              "sdkTag": os.environ["SDK_TAG"],
+              "sourceRef": os.environ["SOURCE_REF"],
+              "packageVersion": os.environ.get("EXPECTED_PACKAGE_VERSION", ""),
+              "packageSha256": os.environ["PACKAGE_SHA256"],
+          }
+          with open(os.path.join(os.environ["RUNNER_TEMP"], "out", evidence["openwrtVersion"], evidence["packageArch"], evidence["package"] + ".build-evidence.json"), "w") as stream:
+              json.dump(evidence, stream, indent=2, sort_keys=True)
+              stream.write("\n")
+          PY
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
-          name: pkg-${{ matrix.arch }}-${{ matrix.package.name }}
-          path: ${{ runner.temp }}/out/${{ matrix.arch }}
+          name: pkg-${{ matrix.openwrtVersion }}-${{ matrix.packageArch }}-${{ matrix.package }}
+          path: ${{ runner.temp }}/out
           if-no-files-found: error
+          retention-days: 30
 
-  publish:
-    needs: build
+  import-rill-runtime:
+    name: Import qualified Rill Stable / ${{ matrix.openwrtVersion }} / ${{ matrix.packageArch }}
+    needs: prepare
+    if: ${{ needs.prepare.outputs.runtime_count != '0' }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.prepare.outputs.runtime_matrix) }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Download and verify exact Rill release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ matrix.sourceRef }}
+          OPENWRT_VERSION: ${{ matrix.openwrtVersion }}
+          PACKAGE_ARCH: ${{ matrix.packageArch }}
+          PACKAGE_FORMAT: ${{ matrix.packageFormat }}
+          OPENWRT_TARGET: ${{ matrix.target }}
+          OPENWRT_SUBTARGET: ${{ matrix.subtarget }}
+          SDK_TAG: ${{ matrix.sdkTag }}
+        run: |
+          set -euo pipefail
+          lock=metadata/source-lock.json
+          RILL_REPOSITORY_URL=$(jq -r '.rillRuntime.repository // empty' "$lock")
+          RILL_RELEASE_ID=$(jq -r '.rillRuntime.releaseId // empty' "$lock")
+          RILL_QUALIFICATION_SHA256=$(jq -r '.rillRuntime.qualificationSha256 // empty' "$lock")
+          RILL_SHA256SUMS_SHA256=$(jq -r '.rillRuntime.sha256SumsSha256 // empty' "$lock")
+          RILL_SOURCE_COMMIT=$(jq -r '.rillRuntime.packageCommit // empty' "$lock")
+          RELEASE_TAG=$(jq -r '.rillRuntime.releaseTag // empty' "$lock")
+          test "$RILL_REPOSITORY_URL" = https://github.com/hello-yunshu/rill-openwrt-packages
+          RILL_REPOSITORY=hello-yunshu/rill-openwrt-packages
+          test -n "$RILL_RELEASE_ID" -a -n "$RILL_QUALIFICATION_SHA256" -a -n "$RILL_SHA256SUMS_SHA256" -a -n "$RILL_SOURCE_COMMIT" -a -n "$RELEASE_TAG"
+          actual_id=$(gh release view "$RELEASE_TAG" --repo "$RILL_REPOSITORY" --json databaseId --jq .databaseId)
+          test "$actual_id" = "$RILL_RELEASE_ID"
+          mkdir -p "$RUNNER_TEMP/rill-release"
+          gh release download "$RELEASE_TAG" --repo "$RILL_REPOSITORY" \
+            --pattern '*.ipk' --pattern '*.apk' --pattern 'SHA256SUMS' --pattern 'qualification.json' \
+            --dir "$RUNNER_TEMP/rill-release"
+          verification=$(python3 scripts/verify_rill_release.py "$RUNNER_TEMP/rill-release" \
+            --tag "$RELEASE_TAG" --release-id "$RILL_RELEASE_ID" \
+            --qualification-sha256 "$RILL_QUALIFICATION_SHA256" \
+            --sha256-sums-sha256 "$RILL_SHA256SUMS_SHA256" \
+            --source-commit "$RILL_SOURCE_COMMIT")
+          ext="$PACKAGE_FORMAT"
+          filename="rill-runtime-v${OPENWRT_VERSION}-${PACKAGE_ARCH}.${ext}"
+          qualified_asset=$(jq -er --arg version "$OPENWRT_VERSION" --arg arch "$PACKAGE_ARCH" --arg format "$PACKAGE_FORMAT" \
+            '[.targets[] | select(.openwrtVersion == $version and .packageArch == $arch and .pkgtype == $format)] | if length == 1 then .[0].artifact else error("missing or duplicate stable target") end' \
+            "$RUNNER_TEMP/rill-release/qualification.json")
+          test -s "$RUNNER_TEMP/rill-release/$qualified_asset"
+          mkdir -p "$RUNNER_TEMP/out/$OPENWRT_VERSION/$PACKAGE_ARCH"
+          cp "$RUNNER_TEMP/rill-release/$qualified_asset" "$RUNNER_TEMP/out/$OPENWRT_VERSION/$PACKAGE_ARCH/$filename"
+          cp "$RUNNER_TEMP/rill-release/qualification.json" "$RUNNER_TEMP/out/$OPENWRT_VERSION/$PACKAGE_ARCH/rill-runtime.qualification.json"
+          cp "$RUNNER_TEMP/rill-release/SHA256SUMS" "$RUNNER_TEMP/out/$OPENWRT_VERSION/$PACKAGE_ARCH/rill-runtime.SHA256SUMS"
+          package_sha=$(sha256sum "$RUNNER_TEMP/out/$OPENWRT_VERSION/$PACKAGE_ARCH/$filename" | awk '{print $1}')
+          jq -n \
+            --arg package rill-runtime \
+            --arg openwrtVersion "$OPENWRT_VERSION" \
+            --arg packageFormat "$PACKAGE_FORMAT" \
+            --arg packageArch "$PACKAGE_ARCH" \
+            --arg target "$OPENWRT_TARGET" \
+            --arg subtarget "$OPENWRT_SUBTARGET" \
+            --arg sdkTag "$SDK_TAG" \
+            --arg sourceRef "$RELEASE_TAG" \
+            --arg sourceCommit "$RILL_SOURCE_COMMIT" \
+            --arg packageSha256 "$package_sha" \
+            --arg qualificationSha256 "$RILL_QUALIFICATION_SHA256" \
+            --arg releaseId "$RILL_RELEASE_ID" \
+            --argjson verification "$verification" \
+            '{package:$package,openwrtVersion:$openwrtVersion,packageFormat:$packageFormat,packageArch:$packageArch,target:$target,subtarget:$subtarget,sdkTag:$sdkTag,sourceRef:$sourceRef,sourceCommit:$sourceCommit,packageSha256:$packageSha256,qualificationSha256:$qualificationSha256,releaseId:$releaseId,rillVerification:$verification}' \
+            > "$RUNNER_TEMP/out/$OPENWRT_VERSION/$PACKAGE_ARCH/rill-runtime.build-evidence.json"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: pkg-${{ matrix.openwrtVersion }}-${{ matrix.packageArch }}-rill-runtime
+          path: ${{ runner.temp }}/out
+          if-no-files-found: error
+          retention-days: 30
+
+  stage-candidate:
+    name: Stage complete candidate for selected scope
+    needs: [prepare, build-package, import-rill-runtime]
+    if: >-
+      always() && needs.prepare.result == 'success' && needs.build-package.result == 'success' &&
+      (needs.import-rill-runtime.result == 'success' || needs.import-rill-runtime.result == 'skipped')
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          pattern: pkg-*
+          path: ${{ runner.temp }}/artifacts
+          merge-multiple: true
+      - name: Validate complete artifact set and stage versioned tree
+        env:
+          PACKAGES: ${{ needs.prepare.outputs.packages }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/candidate"
+          python3 scripts/assemble_feed.py "$RUNNER_TEMP/artifacts" "$RUNNER_TEMP/candidate" --packages "$PACKAGES"
+          cp metadata/mainstream-support.json "$RUNNER_TEMP/candidate/support-matrix.json"
+          cp metadata/source-lock.json "$RUNNER_TEMP/candidate/source-lock.json"
+          cat "$RUNNER_TEMP/candidate/candidate.json"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: feed-candidate-${{ github.run_id }}
+          path: ${{ runner.temp }}/candidate
+          if-no-files-found: error
+          retention-days: 30
+
+  build-indexes:
+    name: Sign ${{ matrix.openwrtVersion }} / ${{ matrix.packageArch }} index
+    needs: [prepare, stage-candidate]
+    if: ${{ needs.stage-candidate.result == 'success' }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.prepare.outputs.index_matrix) }}
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/openwrt/sdk:x86_64-v25.12.0
+      image: ghcr.io/openwrt/sdk:${{ matrix.sdkTag }}
       options: --user root
-    # sdk 镜像自带 WORKDIR /builder，不显式指定就会在 /builder 里落盘/提交
     defaults:
       run:
         working-directory: ${{ github.workspace }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          pattern: pkg-*
-          path: ${{ runner.temp }}/artifacts
-
-      - name: Rebuild signed indexes
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: feed-candidate-${{ github.run_id }}
+          path: ${{ runner.temp }}/candidate
+      - name: Rebuild and sign package index
         env:
-          APK_PRIVATE_KEY: ${{ secrets.APK_PRIVATE_KEY }}
+          OPENWRT_VERSION: ${{ matrix.openwrtVersion }}
+          PACKAGE_ARCH: ${{ matrix.packageArch }}
+          PACKAGE_FORMAT: ${{ matrix.packageFormat }}
+          APK_PRIVATE_KEY_BASE64: ${{ secrets.APK_PRIVATE_KEY }}
+          IPK_PRIVATE_KEY: ${{ secrets.YUN_OPENWRT_IPK_SIGNING_KEY }}
         run: |
-          set -e
-          cd "$GITHUB_WORKSPACE"
-          printf '%s' "$APK_PRIVATE_KEY" | base64 -d > "$RUNNER_TEMP/private-key.pem"
-          chmod 600 "$RUNNER_TEMP/private-key.pem"
-          APK_BIN=/builder/staging_dir/host/bin/apk
-          KEYS_DIR="$GITHUB_WORKSPACE/keys"
-          for arch in x86_64 aarch64_generic; do
-            mkdir -p "$GITHUB_WORKSPACE/$arch"
-            find "$RUNNER_TEMP/artifacts" -path "*/pkg-$arch-*/*.apk" -exec cp -v {} "$GITHUB_WORKSPACE/$arch/" \;
-            for f in "$GITHUB_WORKSPACE/$arch"/*.apk; do
-              "$APK_BIN" --keys-dir "$KEYS_DIR" verify "$f"
-            done
-            "$APK_BIN" mkndx --allow-untrusted --keys-dir "$KEYS_DIR" \
-              --sign-key "$RUNNER_TEMP/private-key.pem" \
-              --output "$GITHUB_WORKSPACE/$arch/packages.adb" "$GITHUB_WORKSPACE/$arch"/*.apk
-            ls -l "$GITHUB_WORKSPACE/$arch"
-          done
-
-      - name: Commit published packages
-        shell: bash
-        run: |
-          set -e
-          cd "$GITHUB_WORKSPACE"
-          pwd
-          # checkout 以 runner 用户落盘，容器内是 root，需显式放行归属
-          git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          git rev-parse --show-toplevel
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A x86_64 aarch64_generic
-          if git diff --cached --quiet; then
-            echo "no changes"
+          set -euo pipefail
+          leaf="$RUNNER_TEMP/candidate/$OPENWRT_VERSION/$PACKAGE_ARCH"
+          test -d "$leaf"
+          if [ "$PACKAGE_FORMAT" = ipk ]; then
+            test -n "$IPK_PRIVATE_KEY"
+            key="$RUNNER_TEMP/yun-ipk.sec"
+            printf '%s' "$IPK_PRIVATE_KEY" > "$key"
+            chmod 600 "$key"
+            mkhash="$RUNNER_TEMP/openwrt-mkhash"
+            cat > "$mkhash" <<'EOF'
+          #!/bin/sh
+          set -eu
+          test "$1" = sha256
+          sha256sum "$2" | awk '{print $1}'
+          EOF
+            chmod +x "$mkhash"
+            (
+              cd "$leaf"
+              MKHASH="$mkhash" /builder/scripts/ipkg-make-index.sh . > Packages.manifest
+              grep -vE '^(Maintainer|LicenseFiles|Source|SourceName|Require|SourceDateEpoch)' Packages.manifest > Packages
+              gzip -9nc Packages > Packages.gz
+              gzip -dc Packages.gz | cmp - Packages
+              /builder/staging_dir/host/bin/usign -S -m Packages.gz -s "$key" -x Packages.sig
+              /builder/staging_dir/host/bin/usign -V -m Packages.gz -p "$GITHUB_WORKSPACE/keys/yun-openwrt-feed-usign.pub" -x Packages.sig -q
+              /builder/staging_dir/host/bin/usign -F -p "$GITHUB_WORKSPACE/keys/yun-openwrt-feed-usign.pub" | grep -Fx 'e58db45ab792599d'
+            )
+          elif [ "$PACKAGE_FORMAT" = apk ]; then
+            test -n "$APK_PRIVATE_KEY_BASE64"
+            key="$RUNNER_TEMP/yun-apk.pem"
+            printf '%s' "$APK_PRIVATE_KEY_BASE64" | base64 -d > "$key"
+            chmod 600 "$key"
+            openssl pkey -in "$key" -pubout -out "$RUNNER_TEMP/yun-apk.pub"
+            cmp -s "$RUNNER_TEMP/yun-apk.pub" keys/yun-feed.rsa.pub
+            mkdir -p "$RUNNER_TEMP/apk-keys"
+            cp keys/yun-feed.rsa.pub "$RUNNER_TEMP/apk-keys/"
+            (
+              cd "$leaf"
+              /builder/staging_dir/host/bin/apk mkndx --allow-untrusted \
+                --keys-dir "$RUNNER_TEMP/apk-keys" --sign "$key" \
+                --output packages.adb ./*.apk
+            )
+            test -s "$leaf/packages.adb"
+            /builder/staging_dir/host/bin/apk \
+              --root "$RUNNER_TEMP/apk-verify-root" \
+              --keys-dir "$RUNNER_TEMP/apk-keys" \
+              --repositories-file /dev/null \
+              --repository "file://$leaf/packages.adb" update
           else
-            git commit -m "chore: publish packages from ${GITHUB_SHA::7}"
-            git push
+            echo "unsupported package format: $PACKAGE_FORMAT" >&2
+            exit 1
           fi
+          sha256sum "$leaf"/* > "$leaf/SHA256SUMS"
+          indexed="$RUNNER_TEMP/indexed/$OPENWRT_VERSION/$PACKAGE_ARCH"
+          mkdir -p "$indexed"
+          cp -a "$leaf/." "$indexed/"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: indexed-${{ matrix.openwrtVersion }}-${{ matrix.packageArch }}
+          path: ${{ runner.temp }}/indexed
+          if-no-files-found: error
+          retention-days: 30
+
+  pages-artifact:
+    name: Assemble downloadable versioned Pages artifact
+    needs: [prepare, stage-candidate, build-indexes]
+    if: >-
+      always() && needs.prepare.result == 'success' && needs.stage-candidate.result == 'success' &&
+      needs.build-indexes.result == 'success'
+    runs-on: ubuntu-24.04
+    outputs:
+      publishable: ${{ steps.gate.outputs.publishable }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          pattern: indexed-*
+          path: ${{ runner.temp }}/indexed
+          merge-multiple: true
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: feed-candidate-${{ github.run_id }}
+          path: ${{ runner.temp }}/candidate
+      - name: Construct Pages root and evaluate qualification gate
+        id: gate
+        env:
+          PACKAGES: ${{ needs.prepare.outputs.packages }}
+          SCOPE: ${{ inputs.scope }}
+        run: |
+          set -euo pipefail
+          mkdir -p site
+          cp -a "$RUNNER_TEMP/indexed/." site/
+          cp "$RUNNER_TEMP/candidate/candidate.json" site/candidate.json
+          cp "$RUNNER_TEMP/candidate/support-matrix.json" site/support-matrix.json
+          cp "$RUNNER_TEMP/candidate/source-lock.json" site/source-lock.json
+          touch site/.nojekyll
+          mkdir -p site/keys
+          cp keys/yun-feed.rsa.pub keys/yun-openwrt-feed-usign.pub site/keys/
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          candidate=json.loads(Path('site/candidate.json').read_text())
+          publishable=(candidate.get('publishable') is True and candidate.get('status')=='publishable-candidate')
+          print('publishable=' + ('true' if publishable else 'false'))
+          PY
+          publishable=$(python3 -c "import json; print(str(json.load(open('site/candidate.json')).get('publishable') is True).lower())")
+          echo "publishable=$publishable" >> "$GITHUB_OUTPUT"
+          cat > site/index.html <<'EOF'
+          <!doctype html>
+          <meta charset="utf-8">
+          <title>Yun OpenWrt Packages</title>
+          <h1>Yun OpenWrt Packages</h1>
+          <p>Version-scoped signed feed. Check <a href="support-matrix.json">support-matrix.json</a> for the exact package, OpenWrt release, and architecture qualification level, and <a href="candidate.json">candidate.json</a> for this feed's qualification summary.</p>
+          <p><code>build-install-qualified</code> covers build, signing, dependency resolution, clean installation, and upgrade checks. It does not claim device-side application Runtime behavior; that requires <code>device-runtime-qualified</code>.</p>
+          <p>This Pages artifact is a candidate until the repository deployment gate is explicitly approved.</p>
+          EOF
+          (cd site && find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum) > site/SHA256SUMS
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: yun-openwrt-pages-candidate-${{ github.run_id }}
+          path: site
+          if-no-files-found: error
+          retention-days: 30
+      - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
+        with:
+          path: site
+
+  deploy-pages:
+    name: Deploy reviewed complete feed to Pages
+    needs: pages-artifact
+    if: ${{ inputs.publish == true && needs.pages-artifact.outputs.publishable == 'true' }}
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4

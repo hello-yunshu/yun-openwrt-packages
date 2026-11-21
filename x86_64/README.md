@@ -1,6 +1,7 @@
 # x86_64/
 
-x86_64 架构的包与索引。
+历史根目录 APK feed 中的 `x86_64` 包与索引，不代表 OpenWrt 25.12.6 已完成资格验证。
+新 feed 使用 `25.12.6/x86_64/`；可用状态见 [支持矩阵](../docs/SUPPORT.md)。
 
 ## 文件
 
@@ -14,8 +15,9 @@ x86_64 架构的包与索引。
 | `luci-app-nginx-manager` | 1.8.8-r1 |
 | `luci-app-cloudflare-ip` | 2.6.0-r13 |
 | `luci-app-upnp-nat-relay` | 1.3.13-r4 |
+| `luci-app-openclash` | 0.48.002 |
 
-设备端引用地址（GitHub Pages）：
+旧设备端引用地址（GitHub Pages）：
 
 ```
 https://hello-yunshu.github.io/yun-openwrt-packages/x86_64/packages.adb
