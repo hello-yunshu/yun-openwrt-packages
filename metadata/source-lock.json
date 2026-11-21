@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "packages": {
+    "luci-app-nginx-manager": {
+      "repository": "https://github.com/hello-yunshu/luci-app-nginx-manager.git",
+      "path": ".",
+      "ref": "3f3bf4dbf5d90b9c69ffb6565eea79c4205bf948",
+      "packageVersion": "1.8.8",
+      "state": "locked"
+    },
+    "luci-app-cloudflare-ip": {
+      "repository": "https://github.com/hello-yunshu/luci-app-cloudflare-ip.git",
+      "path": "package/luci-app-cloudflare-ip",
+      "ref": "7b6f5066d9a66c4f313b61fad846b9887a56fc30",
+      "state": "locked",
+      "packageVersion": "2.6.2"
+    },
+    "luci-app-upnp-nat-relay": {
+      "repository": "https://github.com/hello-yunshu/luci-app-upnp-nat-relay.git",
+      "path": "package/luci-app-upnp-nat-relay",
+      "ref": "d8a3a9e9a9a37403fd1086315409d91a5c04a67c",
+      "packageVersion": "1.3.13",
+      "state": "locked"
+    },
+    "luci-app-openclash": {
+      "repository": "https://github.com/vernesong/OpenClash.git",
+      "path": "luci-app-openclash",
+      "ref": "e553e82e01c697aefbe1555261a503f425e00ccd",
+      "packageVersion": "0.48.002",
+      "state": "locked"
+    },
+    "luci-app-performance-manager-all": {
+      "repository": "https://github.com/hello-yunshu/luci-app-performance-manager.git",
+      "path": "package/luci-app-performance-manager-all",
+      "ref": "8dae333d67f8e19cbf2407923a2cc699c385f665",
+      "state": "locked",
+      "packageVersion": "1.0.7"
+    },
+    "rill-runtime-manager": {
+      "repository": "https://github.com/hello-yunshu/rill-openwrt-packages.git",
+      "path": "package/rill-runtime-manager",
+      "ref": "15031fa08fe029e9792ff55d6ecdd308b9240dd5",
+      "state": "locked",
+      "packageVersion": "1.0.0"
+    }
+  },
+  "rillRuntime": {
+    "repository": "https://github.com/hello-yunshu/rill-openwrt-packages",
+    "packageCommit": "15031fa08fe029e9792ff55d6ecdd308b9240dd5",
+    "releaseTag": "v1.5.6-r8",
+    "releaseId": 453531268,
+    "qualificationSha256": "70eb33b322f1bd9df21f5236dfc5a4d22c4377eb454d6d70e8a61bdf47470961",
+    "sha256SumsSha256": "f1f234cd2ee418517802d3ea308d1bb1ffde502e37836f28e9c7fe44d8b6cec6",
+    "state": "locked",
+    "reason": "Stable 1.5.6-r8 release verified against qualification run 44881757222/attempt 1.",
+    "packageVersion": "1.5.6",
+    "channel": "stable",
+    "qualificationRunId": 44881757222,
+    "qualificationRunAttempt": 1
+  }
+}

@@ -1,7 +1,8 @@
-# BUILD — 编包 → 签名 → 索引 → 发布
+# Legacy BUILD — 根目录 25.12.0 APK feed
 
-本文件是操作手册，命令都在 OpenWrt **25.12** SDK 容器里实测跑过（`ghcr.io/openwrt/sdk:<arch>-v25.12.0`）。
-仓库里的 `.github/workflows/build.yml` 是同一套流程的 CI 版本（按包 × 架构矩阵）。
+本文件只描述已存在的根目录 25.12.0 APK feed 历史构建方式。新版本化构建由
+`.github/workflows/build.yml` 负责，来源锁见 `metadata/source-lock.json`，支持边界见 `docs/SUPPORT.md`。
+不要用本文件中的两个旧 SDK 架构或根目录索引替代 24.10.8 IPK / 25.12.6 APK 矩阵。
 
 ## 0. 前置
 

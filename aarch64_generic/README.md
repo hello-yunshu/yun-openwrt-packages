@@ -1,6 +1,7 @@
 # aarch64_generic/
 
-aarch64_generic 架构的包与索引。
+历史根目录 APK feed 中的 `aarch64_generic` 包与索引，不代表 OpenWrt 25.12.6 已完成资格验证。
+新 feed 使用 `25.12.6/aarch64_generic/`；可用状态见 [支持矩阵](../docs/SUPPORT.md)。
 
 ## 文件
 
@@ -14,11 +15,12 @@ aarch64_generic 架构的包与索引。
 | `luci-app-nginx-manager` | 1.8.8-r1 |
 | `luci-app-cloudflare-ip` | 2.6.0-r13 |
 | `luci-app-upnp-nat-relay` | 1.3.13-r4 |
+| `luci-app-openclash` | 0.48.002 |
 
-三个包都是 `PKGARCH:=all`（包元数据 `arch: noarch`），因此与 `x86_64/` 下是同一份包文件，
-只是索引按架构单独生成。
+四个包都是 `PKGARCH:=all`（包元数据 `arch: noarch`），但本目录的 `.apk` 由 aarch64_generic
+构建任务单独产出并签名，与 `x86_64/` 下的文件字节不同，不要混用。
 
-设备端引用地址（GitHub Pages）：
+旧设备端引用地址（GitHub Pages）：
 
 ```
 https://hello-yunshu.github.io/yun-openwrt-packages/aarch64_generic/packages.adb

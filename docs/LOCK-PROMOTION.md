@@ -1,0 +1,70 @@
+# Promoting pending source locks
+
+`metadata/source-lock.json` is the feed build input contract. A `pending` entry
+means there is no public immutable source/release ref for the intended package
+state yet. The current CFI, PM, and Rill working trees contain uncommitted or
+untracked goal changes, so their local `HEAD` values do not identify those
+changes and must not be copied into this file.
+
+## Application package sources
+
+After the reviewed package changes are committed and pushed in each source
+repository:
+
+1. Record the exact 40-character commit SHA that contains the final package
+recipe and its dependencies. For PM, include the sibling data directories read
+by `luci-app-performance-manager-all/Makefile` in that same commit.
+2. Read `PKG_VERSION` from the package Makefile at that commit and add it beside
+   `ref` in the corresponding lock entry. The feed workflow checks out the SHA,
+   checks the Makefile version, checks the produced filename, and writes both
+   source ref and package version into build evidence.
+3. Keep the lock pending if the commit is not retrievable from the declared
+   public repository. `build_matrix.py --show-pending` is a read-only preview;
+   `--scope all-required` is the fail-closed build gate.
+
+Do not use a local dirty-tree hash, a moving branch name, or an unqualified CI
+artifact as a package source lock.
+
+## Rill Runtime artifacts
+
+The feed imports Runtime bytes from a Rill GitHub Release promoted from one
+successful `OpenWrt package qualification` run. It does not build or download
+`latest` Runtime packages.
+
+1. Commit and push the final `rill-openwrt-packages` changes, including the
+   shared `rill-runtime-manager` package.
+2. Run the qualification workflow for the selected OpenWrt matrix and retain
+   its exact `head_sha`, run ID, and run attempt. The release workflow verifies
+   those identities and promotes the package artifacts from that run without
+   rebuilding them.
+3. After the immutable GitHub Release exists, record its exact tag and numeric
+   release ID. Calculate SHA-256 for its `qualification.json` and `SHA256SUMS`
+   assets, and set `packageCommit` to the exact Rill repository commit in that
+   qualification evidence.
+4. Set the `rill-runtime-manager` source ref to that same package commit. The
+   feed matrix rejects a manager ref that differs from the commit which
+   qualified the Stable Runtime.
+
+After the new Stable qualification succeeds, synchronize the exact Rill
+package commit and qualification identity into the CFI and PM consumer
+contracts, then update the CFI/PM package matrices to the selected OpenWrt
+release and rerun their targeted package-manager jobs.
+
+The feed verifier rechecks the release ID, tag/package identity, evidence
+digest, sums digest, all Runtime asset hashes, and the exact six-target × two
+release Stable matrix before importing bytes.
+
+## Qualification is separate from source locking
+
+A source lock makes a build repeatable; it does not qualify installation or
+device behavior. Leave support-matrix cells pending until evidence for the
+exact package, OpenWrt release, and architecture covers build, signature,
+dependency resolution, clean install, and upgrade. Mark device Runtime as
+`not-evaluated-device` unless device evidence exists. Candidate deployment
+remains gated on every applicable matrix cell and every signed index job.
+
+Run `python3 scripts/validate_mainstream_support.py`,
+`python3 scripts/build_matrix.py --show-pending`, and the feed workflow in
+`all-required` mode after updating locks. A failure to retrieve an exact source
+or release, a package-version mismatch, incomplete qualification evidence, or
+a signing-key mismatch must keep the candidate unpublishable.

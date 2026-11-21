@@ -1,0 +1,1941 @@
+{
+  "schemaVersion": 1,
+  "verifiedAt": "2026-11-21",
+  "policy": "mainstream-architectures-only",
+  "sources": {
+    "openwrtDownloads": "https://downloads.openwrt.org/releases/",
+    "packageArchitectureIndexes": {
+      "24.10.8": "https://downloads.openwrt.org/releases/packages-24.10/",
+      "25.12.6": "https://downloads.openwrt.org/releases/packages-25.12/"
+    },
+    "targetProfilePattern": "https://downloads.openwrt.org/releases/{release}/targets/{target}/{subtarget}/profiles.json",
+    "rustTargetMapping": "https://github.com/openwrt/packages/blob/openwrt-25.12/lang/rust/rust-values.mk"
+  },
+  "releases": [
+    {
+      "version": "24.10.8",
+      "packageFormat": "ipk",
+      "packageManager": "opkg",
+      "supportState": "compatibility-build-target",
+      "lifecycle": "old-stable-limited-security-and-bug-fixes"
+    },
+    {
+      "version": "25.12.6",
+      "packageFormat": "apk",
+      "packageManager": "apk",
+      "supportState": "current-stable-at-verification",
+      "lifecycle": "stable"
+    }
+  ],
+  "architectures": [
+    {
+      "packageArch": "x86_64",
+      "family": "x86_64",
+      "targets": [
+        {
+          "target": "x86",
+          "subtarget": "64",
+          "sdkPrefix": "x86-64"
+        }
+      ],
+      "rustTarget": "x86_64-unknown-linux-musl",
+      "rillRuntimeCandidate": true
+    },
+    {
+      "packageArch": "aarch64_generic",
+      "family": "aarch64",
+      "targets": [
+        {
+          "target": "armsr",
+          "subtarget": "armv8",
+          "sdkPrefix": "armsr-armv8"
+        }
+      ],
+      "rustTarget": "aarch64-unknown-linux-musl",
+      "rillRuntimeCandidate": true
+    },
+    {
+      "packageArch": "aarch64_cortex-a53",
+      "family": "aarch64",
+      "targets": [
+        {
+          "target": "mediatek",
+          "subtarget": "filogic",
+          "sdkPrefix": "mediatek-filogic"
+        }
+      ],
+      "rustTarget": "aarch64-unknown-linux-musl",
+      "rillRuntimeCandidate": true
+    },
+    {
+      "packageArch": "aarch64_cortex-a72",
+      "family": "aarch64",
+      "targets": [
+        {
+          "target": "bcm27xx",
+          "subtarget": "bcm2711",
+          "sdkPrefix": "bcm27xx-bcm2711"
+        }
+      ],
+      "rustTarget": "aarch64-unknown-linux-musl",
+      "rillRuntimeCandidate": true
+    },
+    {
+      "packageArch": "aarch64_cortex-a76",
+      "family": "aarch64",
+      "targets": [
+        {
+          "target": "bcm27xx",
+          "subtarget": "bcm2712",
+          "sdkPrefix": "bcm27xx-bcm2712"
+        }
+      ],
+      "rustTarget": "aarch64-unknown-linux-musl",
+      "rillRuntimeCandidate": true
+    },
+    {
+      "packageArch": "arm_cortex-a7_neon-vfpv4",
+      "family": "armv7-hardfloat",
+      "targets": [
+        {
+          "target": "ipq40xx",
+          "subtarget": "generic",
+          "sdkPrefix": "ipq40xx-generic"
+        }
+      ],
+      "rustTarget": "armv7-unknown-linux-musleabihf",
+      "rillRuntimeCandidate": true
+    },
+    {
+      "packageArch": "mipsel_24kc",
+      "family": "mipsel",
+      "targets": [
+        {
+          "target": "ramips",
+          "subtarget": "mt7621",
+          "sdkPrefix": "ramips-mt7621"
+        }
+      ],
+      "rustTarget": null,
+      "rillRuntimeCandidate": false,
+      "rillRuntimeReason": "The target is absent from the pinned Rustup prebuilt-target list; do not claim PM/Rill support until OpenWrt source-built Rust std and end-to-end ABI/runtime qualification are implemented."
+    }
+  ],
+  "packages": {
+    "luci-app-cloudflare-ip": {
+      "packageArch": "all",
+      "architectures": [
+        "x86_64",
+        "aarch64_generic",
+        "aarch64_cortex-a53",
+        "aarch64_cortex-a72",
+        "aarch64_cortex-a76",
+        "arm_cortex-a7_neon-vfpv4",
+        "mipsel_24kc"
+      ],
+      "rillRuntime": "optional",
+      "qualificationState": "pending-current-source-build"
+    },
+    "rill-runtime-manager": {
+      "packageArch": "all",
+      "architectures": [
+        "x86_64",
+        "aarch64_generic",
+        "aarch64_cortex-a53",
+        "aarch64_cortex-a72",
+        "aarch64_cortex-a76",
+        "arm_cortex-a7_neon-vfpv4",
+        "mipsel_24kc"
+      ],
+      "rillRuntime": "manager-only",
+      "qualificationState": "pending"
+    },
+    "luci-app-performance-manager-all": {
+      "packageArch": "architecture-specific",
+      "architectures": [
+        "x86_64",
+        "aarch64_generic",
+        "aarch64_cortex-a53",
+        "aarch64_cortex-a72",
+        "aarch64_cortex-a76",
+        "arm_cortex-a7_neon-vfpv4"
+      ],
+      "rillRuntime": "required",
+      "qualificationState": "pending-current-source-build",
+      "excludedArchitectures": {
+        "mipsel_24kc": "No qualified Rill Runtime target is available yet."
+      }
+    },
+    "luci-app-nginx-manager": {
+      "packageArch": "all",
+      "architectures": [
+        "x86_64",
+        "aarch64_generic",
+        "aarch64_cortex-a53",
+        "aarch64_cortex-a72",
+        "aarch64_cortex-a76",
+        "arm_cortex-a7_neon-vfpv4",
+        "mipsel_24kc"
+      ],
+      "qualificationState": "pending-current-source-build"
+    },
+    "luci-app-upnp-nat-relay": {
+      "packageArch": "all",
+      "architectures": [
+        "x86_64",
+        "aarch64_generic",
+        "aarch64_cortex-a53",
+        "aarch64_cortex-a72",
+        "aarch64_cortex-a76",
+        "arm_cortex-a7_neon-vfpv4",
+        "mipsel_24kc"
+      ],
+      "qualificationState": "pending-current-source-build"
+    },
+    "luci-app-openclash": {
+      "packageArch": "all",
+      "architectures": [
+        "x86_64",
+        "aarch64_generic",
+        "aarch64_cortex-a53",
+        "aarch64_cortex-a72",
+        "aarch64_cortex-a76",
+        "arm_cortex-a7_neon-vfpv4",
+        "mipsel_24kc"
+      ],
+      "qualificationState": "pending-current-source-build"
+    },
+    "rill-runtime": {
+      "packageArch": "architecture-specific",
+      "architectures": [
+        "x86_64",
+        "aarch64_generic",
+        "aarch64_cortex-a53",
+        "aarch64_cortex-a72",
+        "aarch64_cortex-a76",
+        "arm_cortex-a7_neon-vfpv4"
+      ],
+      "rillRuntime": "provider",
+      "qualificationState": "pending-new-stable-qualification",
+      "excludedArchitectures": {
+        "mipsel_24kc": "Rustup does not provide the target triple; source-built Rust std remains unqualified."
+      }
+    }
+  },
+  "qualificationMatrix": [
+    {
+      "package": "luci-app-cloudflare-ip",
+      "openwrtVersion": "24.10.8",
+      "packageFormat": "ipk",
+      "target": "x86",
+      "subtarget": "64",
+      "packageArch": "x86_64",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-cloudflare-ip",
+      "openwrtVersion": "24.10.8",
+      "packageFormat": "ipk",
+      "target": "armsr",
+      "subtarget": "armv8",
+      "packageArch": "aarch64_generic",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-cloudflare-ip",
+      "openwrtVersion": "24.10.8",
+      "packageFormat": "ipk",
+      "target": "mediatek",
+      "subtarget": "filogic",
+      "packageArch": "aarch64_cortex-a53",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-cloudflare-ip",
+      "openwrtVersion": "24.10.8",
+      "packageFormat": "ipk",
+      "target": "bcm27xx",
+      "subtarget": "bcm2711",
+      "packageArch": "aarch64_cortex-a72",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-cloudflare-ip",
+      "openwrtVersion": "24.10.8",
+      "packageFormat": "ipk",
+      "target": "bcm27xx",
+      "subtarget": "bcm2712",
+      "packageArch": "aarch64_cortex-a76",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-cloudflare-ip",
+      "openwrtVersion": "24.10.8",
+      "packageFormat": "ipk",
+      "target": "ipq40xx",
+      "subtarget": "generic",
+      "packageArch": "arm_cortex-a7_neon-vfpv4",
+      "status": "pending",
+      "checks": {
+        "build": "passed",
+        "dependencyResolution": "passed",
+        "signature": "passed-temporary-test-key",
+        "cleanInstall": "passed",
+        "upgrade": "pending",
+        "runtime": "not-evaluated-device"
+      },
+      "evidence": {
+        "artifactSha256": "e5ff1236f570d774fb88be69f1803559079afa69628255f0fd6ce049ddde83a0",
+        "packageObservation": "CFI 2.6.2-r27; host opkg clean install succeeded without Runtime; Runtime Manager installed as hard dependency.",
+        "signatureScope": "Host opkg separately accepted/rejected Packages.gz signatures with a temporary key; the clean-install transaction itself did not enforce check_signature. Production trust was not tested.",
+        "upgradeObservation": "No end-to-end package upgrade transaction for this exact release/architecture was run.",
+        "runtimeObservation": "No physical device/target emulator execution was performed."
+      }
+    },
+    {
+      "package": "luci-app-cloudflare-ip",
+      "openwrtVersion": "24.10.8",
+      "packageFormat": "ipk",
+      "target": "ramips",
+      "subtarget": "mt7621",
+      "packageArch": "mipsel_24kc",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-cloudflare-ip",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "x86",
+      "subtarget": "64",
+      "packageArch": "x86_64",
+      "status": "pending",
+      "checks": {
+        "build": "passed",
+        "dependencyResolution": "passed",
+        "signature": "passed-temporary-test-key",
+        "cleanInstall": "passed",
+        "upgrade": "pending",
+        "runtime": "not-evaluated-device"
+      },
+      "evidence": {
+        "artifactSha256": "4e61ed32de2e2115e9596c8d2dcd7a86566713a5f684099a8bec201e53fff36c",
+        "packageObservation": "CFI 2.6.2-r27 APK built and installed from signed temporary test repository without Runtime.",
+        "signatureScope": "APK test repository used a temporary trusted key; no-key installation failed closed. Production CI key/release signature was not tested.",
+        "upgradeObservation": "No end-to-end package upgrade transaction for this exact release/architecture was run.",
+        "runtimeObservation": "No physical device/target emulator execution was performed."
+      }
+    },
+    {
+      "package": "luci-app-cloudflare-ip",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "armsr",
+      "subtarget": "armv8",
+      "packageArch": "aarch64_generic",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-cloudflare-ip",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "mediatek",
+      "subtarget": "filogic",
+      "packageArch": "aarch64_cortex-a53",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-cloudflare-ip",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "bcm27xx",
+      "subtarget": "bcm2711",
+      "packageArch": "aarch64_cortex-a72",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-cloudflare-ip",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "bcm27xx",
+      "subtarget": "bcm2712",
+      "packageArch": "aarch64_cortex-a76",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-cloudflare-ip",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "ipq40xx",
+      "subtarget": "generic",
+      "packageArch": "arm_cortex-a7_neon-vfpv4",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-cloudflare-ip",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "ramips",
+      "subtarget": "mt7621",
+      "packageArch": "mipsel_24kc",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "rill-runtime-manager",
+      "openwrtVersion": "24.10.8",
+      "packageFormat": "ipk",
+      "target": "x86",
+      "subtarget": "64",
+      "packageArch": "x86_64",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "rill-runtime-manager",
+      "openwrtVersion": "24.10.8",
+      "packageFormat": "ipk",
+      "target": "armsr",
+      "subtarget": "armv8",
+      "packageArch": "aarch64_generic",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "rill-runtime-manager",
+      "openwrtVersion": "24.10.8",
+      "packageFormat": "ipk",
+      "target": "mediatek",
+      "subtarget": "filogic",
+      "packageArch": "aarch64_cortex-a53",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "rill-runtime-manager",
+      "openwrtVersion": "24.10.8",
+      "packageFormat": "ipk",
+      "target": "bcm27xx",
+      "subtarget": "bcm2711",
+      "packageArch": "aarch64_cortex-a72",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "rill-runtime-manager",
+      "openwrtVersion": "24.10.8",
+      "packageFormat": "ipk",
+      "target": "bcm27xx",
+      "subtarget": "bcm2712",
+      "packageArch": "aarch64_cortex-a76",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "rill-runtime-manager",
+      "openwrtVersion": "24.10.8",
+      "packageFormat": "ipk",
+      "target": "ipq40xx",
+      "subtarget": "generic",
+      "packageArch": "arm_cortex-a7_neon-vfpv4",
+      "status": "pending",
+      "checks": {
+        "build": "passed",
+        "dependencyResolution": "passed",
+        "signature": "passed-temporary-test-key",
+        "cleanInstall": "passed",
+        "upgrade": "pending",
+        "runtime": "not-evaluated-device"
+      },
+      "evidence": {
+        "artifactSha256": "0e74401f754a0cb3acefd9c62fd43f1e65fbe13bfff6e8022ca5d383be400ea4",
+        "packageObservation": "Manager 1.0.0-r1 installed as CFI/PM dependency; Architecture: all.",
+        "signatureScope": "Host opkg separately accepted/rejected Packages.gz signatures with a temporary key; the clean-install transaction itself did not enforce check_signature. Production trust was not tested.",
+        "upgradeObservation": "No end-to-end package upgrade transaction for this exact release/architecture was run.",
+        "runtimeObservation": "No physical device/target emulator execution was performed."
+      }
+    },
+    {
+      "package": "rill-runtime-manager",
+      "openwrtVersion": "24.10.8",
+      "packageFormat": "ipk",
+      "target": "ramips",
+      "subtarget": "mt7621",
+      "packageArch": "mipsel_24kc",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "rill-runtime-manager",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "x86",
+      "subtarget": "64",
+      "packageArch": "x86_64",
+      "status": "pending",
+      "checks": {
+        "build": "passed",
+        "dependencyResolution": "passed",
+        "signature": "passed-temporary-test-key",
+        "cleanInstall": "passed",
+        "upgrade": "pending",
+        "runtime": "not-evaluated-device"
+      },
+      "evidence": {
+        "artifactSha256": "e9599e910bff5e9be6a8e4bf9fd1c610b95feb70aa694c1c74f150d274a5e91e",
+        "packageObservation": "Manager 1.0.0-r1 APK built and installed as dependency.",
+        "signatureScope": "APK test repository used a temporary trusted key; no-key installation failed closed. Production CI key/release signature was not tested.",
+        "upgradeObservation": "No end-to-end package upgrade transaction for this exact release/architecture was run.",
+        "runtimeObservation": "No physical device/target emulator execution was performed."
+      }
+    },
+    {
+      "package": "rill-runtime-manager",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "armsr",
+      "subtarget": "armv8",
+      "packageArch": "aarch64_generic",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "rill-runtime-manager",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "mediatek",
+      "subtarget": "filogic",
+      "packageArch": "aarch64_cortex-a53",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "rill-runtime-manager",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "bcm27xx",
+      "subtarget": "bcm2711",
+      "packageArch": "aarch64_cortex-a72",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "rill-runtime-manager",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "bcm27xx",
+      "subtarget": "bcm2712",
+      "packageArch": "aarch64_cortex-a76",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "rill-runtime-manager",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "ipq40xx",
+      "subtarget": "generic",
+      "packageArch": "arm_cortex-a7_neon-vfpv4",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "rill-runtime-manager",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "ramips",
+      "subtarget": "mt7621",
+      "packageArch": "mipsel_24kc",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-performance-manager-all",
+      "openwrtVersion": "24.10.8",
+      "packageFormat": "ipk",
+      "target": "x86",
+      "subtarget": "64",
+      "packageArch": "x86_64",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-performance-manager-all",
+      "openwrtVersion": "24.10.8",
+      "packageFormat": "ipk",
+      "target": "armsr",
+      "subtarget": "armv8",
+      "packageArch": "aarch64_generic",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-performance-manager-all",
+      "openwrtVersion": "24.10.8",
+      "packageFormat": "ipk",
+      "target": "mediatek",
+      "subtarget": "filogic",
+      "packageArch": "aarch64_cortex-a53",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-performance-manager-all",
+      "openwrtVersion": "24.10.8",
+      "packageFormat": "ipk",
+      "target": "bcm27xx",
+      "subtarget": "bcm2711",
+      "packageArch": "aarch64_cortex-a72",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-performance-manager-all",
+      "openwrtVersion": "24.10.8",
+      "packageFormat": "ipk",
+      "target": "bcm27xx",
+      "subtarget": "bcm2712",
+      "packageArch": "aarch64_cortex-a76",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-performance-manager-all",
+      "openwrtVersion": "24.10.8",
+      "packageFormat": "ipk",
+      "target": "ipq40xx",
+      "subtarget": "generic",
+      "packageArch": "arm_cortex-a7_neon-vfpv4",
+      "status": "pending",
+      "checks": {
+        "build": "passed",
+        "dependencyResolution": "passed",
+        "signature": "passed-temporary-test-key",
+        "cleanInstall": "passed",
+        "upgrade": "pending",
+        "runtime": "not-evaluated-device"
+      },
+      "evidence": {
+        "artifactSha256": "97513d0629186a059193c1deea71cc5d2e79a487d974486a2092bc214bde9513",
+        "packageObservation": "PM 1.0.7-r6 host opkg clean install succeeded; pulled Runtime Manager and the legacy Preview package; package target emitted despite unrelated SDK dependency errors ignored with make -i.",
+        "signatureScope": "Host opkg separately accepted/rejected Packages.gz signatures with a temporary key; the clean-install transaction itself did not enforce check_signature. Production trust was not tested.",
+        "upgradeObservation": "No end-to-end package upgrade transaction for this exact release/architecture was run.",
+        "runtimeObservation": "No physical device/target emulator execution was performed.",
+        "packageArchitecture": "target-specific, matching the PM package policy test and architecture-specific Runtime dependency"
+      }
+    },
+    {
+      "package": "luci-app-performance-manager-all",
+      "openwrtVersion": "24.10.8",
+      "packageFormat": "ipk",
+      "target": "ramips",
+      "subtarget": "mt7621",
+      "packageArch": "mipsel_24kc",
+      "status": "unsupported",
+      "checks": {
+        "build": "not-applicable",
+        "dependencyResolution": "not-applicable",
+        "signature": "not-applicable",
+        "cleanInstall": "not-applicable",
+        "upgrade": "not-applicable",
+        "runtime": "not-applicable"
+      },
+      "reason": "No qualified Rill Runtime target is available yet."
+    },
+    {
+      "package": "luci-app-performance-manager-all",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "x86",
+      "subtarget": "64",
+      "packageArch": "x86_64",
+      "status": "pending",
+      "checks": {
+        "build": "passed",
+        "dependencyResolution": "passed",
+        "signature": "passed-temporary-test-key",
+        "cleanInstall": "passed",
+        "upgrade": "pending",
+        "runtime": "not-evaluated-device"
+      },
+      "evidence": {
+        "artifactSha256": "554eed3a9a61b447be31cea3da17b90367dbc6bf58c1a85bdf62990b0abddb3a",
+        "packageObservation": "PM 1.0.7-r6 APK built and clean-installed; pulled Runtime Manager and the legacy Preview package.",
+        "signatureScope": "APK test repository used a temporary trusted key; no-key installation failed closed. Production CI key/release signature was not tested.",
+        "upgradeObservation": "No end-to-end package upgrade transaction for this exact release/architecture was run.",
+        "runtimeObservation": "No physical device/target emulator execution was performed.",
+        "packageArchitecture": "target-specific, matching the PM package policy test and architecture-specific Runtime dependency"
+      }
+    },
+    {
+      "package": "luci-app-performance-manager-all",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "armsr",
+      "subtarget": "armv8",
+      "packageArch": "aarch64_generic",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-performance-manager-all",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "mediatek",
+      "subtarget": "filogic",
+      "packageArch": "aarch64_cortex-a53",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-performance-manager-all",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "bcm27xx",
+      "subtarget": "bcm2711",
+      "packageArch": "aarch64_cortex-a72",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-performance-manager-all",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "bcm27xx",
+      "subtarget": "bcm2712",
+      "packageArch": "aarch64_cortex-a76",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-performance-manager-all",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "ipq40xx",
+      "subtarget": "generic",
+      "packageArch": "arm_cortex-a7_neon-vfpv4",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-performance-manager-all",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "ramips",
+      "subtarget": "mt7621",
+      "packageArch": "mipsel_24kc",
+      "status": "unsupported",
+      "checks": {
+        "build": "not-applicable",
+        "dependencyResolution": "not-applicable",
+        "signature": "not-applicable",
+        "cleanInstall": "not-applicable",
+        "upgrade": "not-applicable",
+        "runtime": "not-applicable"
+      },
+      "reason": "No qualified Rill Runtime target is available yet."
+    },
+    {
+      "package": "rill-runtime",
+      "openwrtVersion": "24.10.8",
+      "packageFormat": "ipk",
+      "target": "x86",
+      "subtarget": "64",
+      "packageArch": "x86_64",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "rill-runtime",
+      "openwrtVersion": "24.10.8",
+      "packageFormat": "ipk",
+      "target": "armsr",
+      "subtarget": "armv8",
+      "packageArch": "aarch64_generic",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "rill-runtime",
+      "openwrtVersion": "24.10.8",
+      "packageFormat": "ipk",
+      "target": "mediatek",
+      "subtarget": "filogic",
+      "packageArch": "aarch64_cortex-a53",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "rill-runtime",
+      "openwrtVersion": "24.10.8",
+      "packageFormat": "ipk",
+      "target": "bcm27xx",
+      "subtarget": "bcm2711",
+      "packageArch": "aarch64_cortex-a72",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "rill-runtime",
+      "openwrtVersion": "24.10.8",
+      "packageFormat": "ipk",
+      "target": "bcm27xx",
+      "subtarget": "bcm2712",
+      "packageArch": "aarch64_cortex-a76",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "rill-runtime",
+      "openwrtVersion": "24.10.8",
+      "packageFormat": "ipk",
+      "target": "ipq40xx",
+      "subtarget": "generic",
+      "packageArch": "arm_cortex-a7_neon-vfpv4",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "rill-runtime",
+      "openwrtVersion": "24.10.8",
+      "packageFormat": "ipk",
+      "target": "ramips",
+      "subtarget": "mt7621",
+      "packageArch": "mipsel_24kc",
+      "status": "unsupported",
+      "checks": {
+        "build": "not-applicable",
+        "dependencyResolution": "not-applicable",
+        "signature": "not-applicable",
+        "cleanInstall": "not-applicable",
+        "upgrade": "not-applicable",
+        "runtime": "not-applicable"
+      },
+      "reason": "Rustup does not provide the target triple; source-built Rust std remains unqualified."
+    },
+    {
+      "package": "rill-runtime",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "x86",
+      "subtarget": "64",
+      "packageArch": "x86_64",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "rill-runtime",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "armsr",
+      "subtarget": "armv8",
+      "packageArch": "aarch64_generic",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "rill-runtime",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "mediatek",
+      "subtarget": "filogic",
+      "packageArch": "aarch64_cortex-a53",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "rill-runtime",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "bcm27xx",
+      "subtarget": "bcm2711",
+      "packageArch": "aarch64_cortex-a72",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "rill-runtime",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "bcm27xx",
+      "subtarget": "bcm2712",
+      "packageArch": "aarch64_cortex-a76",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "rill-runtime",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "ipq40xx",
+      "subtarget": "generic",
+      "packageArch": "arm_cortex-a7_neon-vfpv4",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "rill-runtime",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "ramips",
+      "subtarget": "mt7621",
+      "packageArch": "mipsel_24kc",
+      "status": "unsupported",
+      "checks": {
+        "build": "not-applicable",
+        "dependencyResolution": "not-applicable",
+        "signature": "not-applicable",
+        "cleanInstall": "not-applicable",
+        "upgrade": "not-applicable",
+        "runtime": "not-applicable"
+      },
+      "reason": "Rustup does not provide the target triple; source-built Rust std remains unqualified."
+    },
+    {
+      "package": "luci-app-nginx-manager",
+      "openwrtVersion": "24.10.8",
+      "packageFormat": "ipk",
+      "target": "x86",
+      "subtarget": "64",
+      "packageArch": "x86_64",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-nginx-manager",
+      "openwrtVersion": "24.10.8",
+      "packageFormat": "ipk",
+      "target": "armsr",
+      "subtarget": "armv8",
+      "packageArch": "aarch64_generic",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-nginx-manager",
+      "openwrtVersion": "24.10.8",
+      "packageFormat": "ipk",
+      "target": "mediatek",
+      "subtarget": "filogic",
+      "packageArch": "aarch64_cortex-a53",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-nginx-manager",
+      "openwrtVersion": "24.10.8",
+      "packageFormat": "ipk",
+      "target": "bcm27xx",
+      "subtarget": "bcm2711",
+      "packageArch": "aarch64_cortex-a72",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-nginx-manager",
+      "openwrtVersion": "24.10.8",
+      "packageFormat": "ipk",
+      "target": "bcm27xx",
+      "subtarget": "bcm2712",
+      "packageArch": "aarch64_cortex-a76",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-nginx-manager",
+      "openwrtVersion": "24.10.8",
+      "packageFormat": "ipk",
+      "target": "ipq40xx",
+      "subtarget": "generic",
+      "packageArch": "arm_cortex-a7_neon-vfpv4",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-nginx-manager",
+      "openwrtVersion": "24.10.8",
+      "packageFormat": "ipk",
+      "target": "ramips",
+      "subtarget": "mt7621",
+      "packageArch": "mipsel_24kc",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-nginx-manager",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "x86",
+      "subtarget": "64",
+      "packageArch": "x86_64",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-nginx-manager",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "armsr",
+      "subtarget": "armv8",
+      "packageArch": "aarch64_generic",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-nginx-manager",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "mediatek",
+      "subtarget": "filogic",
+      "packageArch": "aarch64_cortex-a53",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-nginx-manager",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "bcm27xx",
+      "subtarget": "bcm2711",
+      "packageArch": "aarch64_cortex-a72",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-nginx-manager",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "bcm27xx",
+      "subtarget": "bcm2712",
+      "packageArch": "aarch64_cortex-a76",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-nginx-manager",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "ipq40xx",
+      "subtarget": "generic",
+      "packageArch": "arm_cortex-a7_neon-vfpv4",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-nginx-manager",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "ramips",
+      "subtarget": "mt7621",
+      "packageArch": "mipsel_24kc",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-upnp-nat-relay",
+      "openwrtVersion": "24.10.8",
+      "packageFormat": "ipk",
+      "target": "x86",
+      "subtarget": "64",
+      "packageArch": "x86_64",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-upnp-nat-relay",
+      "openwrtVersion": "24.10.8",
+      "packageFormat": "ipk",
+      "target": "armsr",
+      "subtarget": "armv8",
+      "packageArch": "aarch64_generic",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-upnp-nat-relay",
+      "openwrtVersion": "24.10.8",
+      "packageFormat": "ipk",
+      "target": "mediatek",
+      "subtarget": "filogic",
+      "packageArch": "aarch64_cortex-a53",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-upnp-nat-relay",
+      "openwrtVersion": "24.10.8",
+      "packageFormat": "ipk",
+      "target": "bcm27xx",
+      "subtarget": "bcm2711",
+      "packageArch": "aarch64_cortex-a72",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-upnp-nat-relay",
+      "openwrtVersion": "24.10.8",
+      "packageFormat": "ipk",
+      "target": "bcm27xx",
+      "subtarget": "bcm2712",
+      "packageArch": "aarch64_cortex-a76",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-upnp-nat-relay",
+      "openwrtVersion": "24.10.8",
+      "packageFormat": "ipk",
+      "target": "ipq40xx",
+      "subtarget": "generic",
+      "packageArch": "arm_cortex-a7_neon-vfpv4",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-upnp-nat-relay",
+      "openwrtVersion": "24.10.8",
+      "packageFormat": "ipk",
+      "target": "ramips",
+      "subtarget": "mt7621",
+      "packageArch": "mipsel_24kc",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-upnp-nat-relay",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "x86",
+      "subtarget": "64",
+      "packageArch": "x86_64",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-upnp-nat-relay",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "armsr",
+      "subtarget": "armv8",
+      "packageArch": "aarch64_generic",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-upnp-nat-relay",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "mediatek",
+      "subtarget": "filogic",
+      "packageArch": "aarch64_cortex-a53",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-upnp-nat-relay",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "bcm27xx",
+      "subtarget": "bcm2711",
+      "packageArch": "aarch64_cortex-a72",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-upnp-nat-relay",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "bcm27xx",
+      "subtarget": "bcm2712",
+      "packageArch": "aarch64_cortex-a76",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-upnp-nat-relay",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "ipq40xx",
+      "subtarget": "generic",
+      "packageArch": "arm_cortex-a7_neon-vfpv4",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-upnp-nat-relay",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "ramips",
+      "subtarget": "mt7621",
+      "packageArch": "mipsel_24kc",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-openclash",
+      "openwrtVersion": "24.10.8",
+      "packageFormat": "ipk",
+      "target": "x86",
+      "subtarget": "64",
+      "packageArch": "x86_64",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-openclash",
+      "openwrtVersion": "24.10.8",
+      "packageFormat": "ipk",
+      "target": "armsr",
+      "subtarget": "armv8",
+      "packageArch": "aarch64_generic",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-openclash",
+      "openwrtVersion": "24.10.8",
+      "packageFormat": "ipk",
+      "target": "mediatek",
+      "subtarget": "filogic",
+      "packageArch": "aarch64_cortex-a53",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-openclash",
+      "openwrtVersion": "24.10.8",
+      "packageFormat": "ipk",
+      "target": "bcm27xx",
+      "subtarget": "bcm2711",
+      "packageArch": "aarch64_cortex-a72",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-openclash",
+      "openwrtVersion": "24.10.8",
+      "packageFormat": "ipk",
+      "target": "bcm27xx",
+      "subtarget": "bcm2712",
+      "packageArch": "aarch64_cortex-a76",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-openclash",
+      "openwrtVersion": "24.10.8",
+      "packageFormat": "ipk",
+      "target": "ipq40xx",
+      "subtarget": "generic",
+      "packageArch": "arm_cortex-a7_neon-vfpv4",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-openclash",
+      "openwrtVersion": "24.10.8",
+      "packageFormat": "ipk",
+      "target": "ramips",
+      "subtarget": "mt7621",
+      "packageArch": "mipsel_24kc",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-openclash",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "x86",
+      "subtarget": "64",
+      "packageArch": "x86_64",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-openclash",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "armsr",
+      "subtarget": "armv8",
+      "packageArch": "aarch64_generic",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-openclash",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "mediatek",
+      "subtarget": "filogic",
+      "packageArch": "aarch64_cortex-a53",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-openclash",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "bcm27xx",
+      "subtarget": "bcm2711",
+      "packageArch": "aarch64_cortex-a72",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-openclash",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "bcm27xx",
+      "subtarget": "bcm2712",
+      "packageArch": "aarch64_cortex-a76",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-openclash",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "ipq40xx",
+      "subtarget": "generic",
+      "packageArch": "arm_cortex-a7_neon-vfpv4",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-openclash",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "ramips",
+      "subtarget": "mt7621",
+      "packageArch": "mipsel_24kc",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    }
+  ]
+}
