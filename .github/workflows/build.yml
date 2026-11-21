@@ -311,10 +311,11 @@ jobs:
           RILL_QUALIFICATION_SHA256=$(jq -r '.rillRuntime.qualificationSha256 // empty' "$lock")
           RILL_SHA256SUMS_SHA256=$(jq -r '.rillRuntime.sha256SumsSha256 // empty' "$lock")
           RILL_SOURCE_COMMIT=$(jq -r '.rillRuntime.packageCommit // empty' "$lock")
+          RILL_PACKAGE_VERSION=$(jq -r '.rillRuntime.packageVersion // empty' "$lock")
           RELEASE_TAG=$(jq -r '.rillRuntime.releaseTag // empty' "$lock")
           test "$RILL_REPOSITORY_URL" = https://github.com/hello-yunshu/rill-openwrt-packages
           RILL_REPOSITORY=hello-yunshu/rill-openwrt-packages
-          test -n "$RILL_RELEASE_ID" -a -n "$RILL_QUALIFICATION_SHA256" -a -n "$RILL_SHA256SUMS_SHA256" -a -n "$RILL_SOURCE_COMMIT" -a -n "$RELEASE_TAG"
+          test -n "$RILL_RELEASE_ID" -a -n "$RILL_QUALIFICATION_SHA256" -a -n "$RILL_SHA256SUMS_SHA256" -a -n "$RILL_SOURCE_COMMIT" -a -n "$RILL_PACKAGE_VERSION" -a -n "$RELEASE_TAG"
           actual_id=$(gh release view "$RELEASE_TAG" --repo "$RILL_REPOSITORY" --json databaseId --jq .databaseId)
           test "$actual_id" = "$RILL_RELEASE_ID"
           mkdir -p "$RUNNER_TEMP/rill-release"
@@ -347,11 +348,12 @@ jobs:
             --arg sdkTag "$SDK_TAG" \
             --arg sourceRef "$RELEASE_TAG" \
             --arg sourceCommit "$RILL_SOURCE_COMMIT" \
+            --arg packageVersion "$RILL_PACKAGE_VERSION" \
             --arg packageSha256 "$package_sha" \
             --arg qualificationSha256 "$RILL_QUALIFICATION_SHA256" \
             --arg releaseId "$RILL_RELEASE_ID" \
             --argjson verification "$verification" \
-            '{package:$package,openwrtVersion:$openwrtVersion,packageFormat:$packageFormat,packageArch:$packageArch,target:$target,subtarget:$subtarget,sdkTag:$sdkTag,sourceRef:$sourceRef,sourceCommit:$sourceCommit,packageSha256:$packageSha256,qualificationSha256:$qualificationSha256,releaseId:$releaseId,rillVerification:$verification}' \
+            '{package:$package,openwrtVersion:$openwrtVersion,packageFormat:$packageFormat,packageArch:$packageArch,target:$target,subtarget:$subtarget,sdkTag:$sdkTag,sourceRef:$sourceRef,sourceCommit:$sourceCommit,packageVersion:$packageVersion,packageSha256:$packageSha256,qualificationSha256:$qualificationSha256,releaseId:$releaseId,rillVerification:$verification}' \
             > "$RUNNER_TEMP/out/$OPENWRT_VERSION/$PACKAGE_ARCH/rill-runtime.build-evidence.json"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
