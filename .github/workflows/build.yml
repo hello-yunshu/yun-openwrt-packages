@@ -129,12 +129,52 @@ jobs:
             git -C /tmp/rill-src fetch -q --depth 1 origin "$RILL_SOURCE_COMMIT"
             git -C /tmp/rill-src checkout -q --detach FETCH_HEAD
             test "$(git -C /tmp/rill-src rev-parse HEAD)" = "$RILL_SOURCE_COMMIT"
-            for dependency in rill-runtime-manager rill-runtime; do
-              mkdir -p "package/$dependency"
-              cp -a "/tmp/rill-src/package/$dependency/." "package/$dependency/"
-            done
+            mkdir -p package/rill-runtime-manager
+            cp -a /tmp/rill-src/package/rill-runtime-manager/. package/rill-runtime-manager/
+            if [[ "$PKG_NAME" == "luci-app-performance-manager-all" ]]; then
+              mkdir -p package/rill-runtime
+              cp -a /tmp/rill-src/package/rill-runtime/. package/rill-runtime/
+            else
+              # The CFI recipe also defines a deprecated, empty
+              # luci-app-cloudflare-ip-rill compatibility stub that depends on
+              # rill-runtime. The feed publishes the base package; the Runtime
+              # itself is imported from qualified release artifacts in its own
+              # matrix rows. Use a build-only provider so the stub can resolve
+              # its static dependency on every supported architecture,
+              # including mipsel, which has no qualified Rust target.
+              mkdir -p package/rill-runtime
+              cat > package/rill-runtime/Makefile <<'EOF'
+          include $(TOPDIR)/rules.mk
+          PKG_NAME:=rill-runtime
+          PKG_VERSION:=0
+          PKG_RELEASE:=1
+          include $(INCLUDE_DIR)/package.mk
+          define Package/rill-runtime
+            SECTION:=utils
+            CATEGORY:=Utilities
+            TITLE:=Build-only Rill Runtime provider for the CFI compatibility stub
+            PKGARCH:=all
+          endef
+          define Build/Compile
+          endef
+          define Package/rill-runtime/install
+          	:
+          endef
+          $(eval $(call BuildPackage,rill-runtime))
+          EOF
+            fi
           fi
           grep -E '^(PKG_NAME|PKG_VERSION|PKG_RELEASE|PKGARCH):=' "package/$PKG_NAME/Makefile" || true
+      - name: Prepare Rust toolchain for the Rill runtime dependency
+        if: ${{ matrix.package == 'luci-app-performance-manager-all' }}
+        working-directory: /tmp/rill-src
+        env:
+          RUST_TARGET: ${{ matrix.rustTarget }}
+          RUST_STAGING_DIR: /builder/staging_dir/host
+        run: |
+          set -euo pipefail
+          test -n "$RUST_TARGET"
+          GITHUB_WORKSPACE=/tmp/rill-src ./scripts/prepare_rust_toolchain.sh
       - name: Prepare APK signing key
         if: ${{ matrix.packageFormat == 'apk' }}
         working-directory: /builder
@@ -188,10 +228,14 @@ jobs:
           EXPECTED_PACKAGE_VERSION: ${{ matrix.expectedPackageVersion }}
         run: |
           set -euo pipefail
+          test -n "$EXPECTED_PACKAGE_VERSION"
+          # Bind the selection to the exact package version so optional
+          # compatibility subpackages (for example the empty CFI -rill stub)
+          # can never be mistaken for the published package.
           if [ "$PKG_FORMAT" = ipk ]; then
-            package_pattern="${PKG_NAME}_*.ipk"
+            package_pattern="${PKG_NAME}_${EXPECTED_PACKAGE_VERSION}"'*.ipk'
           else
-            package_pattern="${PKG_NAME}-*.apk"
+            package_pattern="${PKG_NAME}-${EXPECTED_PACKAGE_VERSION}"'*.apk'
           fi
           mapfile -t packages < <(find bin/packages -type f -name "$package_pattern" -print | sort)
           test "${#packages[@]}" -eq 1
@@ -199,7 +243,7 @@ jobs:
             package_file=$(basename "${packages[0]}")
             case "$PKG_FORMAT" in
               ipk) [[ "$package_file" == "${PKG_NAME}_${EXPECTED_PACKAGE_VERSION}_"*".ipk" || "$package_file" == "${PKG_NAME}_${EXPECTED_PACKAGE_VERSION}-r"*".ipk" ]] ;;
-              apk) [[ "$package_file" == "${PKG_NAME}-${EXPECTED_PACKAGE_VERSION}-r"*".apk" ]] ;;
+              apk) [[ "$package_file" == "${PKG_NAME}-${EXPECTED_PACKAGE_VERSION}.apk" || "$package_file" == "${PKG_NAME}-${EXPECTED_PACKAGE_VERSION}-r"*".apk" ]] ;;
               *) exit 1 ;;
             esac
           fi
@@ -267,10 +311,11 @@ jobs:
           RILL_QUALIFICATION_SHA256=$(jq -r '.rillRuntime.qualificationSha256 // empty' "$lock")
           RILL_SHA256SUMS_SHA256=$(jq -r '.rillRuntime.sha256SumsSha256 // empty' "$lock")
           RILL_SOURCE_COMMIT=$(jq -r '.rillRuntime.packageCommit // empty' "$lock")
+          RILL_PACKAGE_VERSION=$(jq -r '.rillRuntime.packageVersion // empty' "$lock")
           RELEASE_TAG=$(jq -r '.rillRuntime.releaseTag // empty' "$lock")
           test "$RILL_REPOSITORY_URL" = https://github.com/hello-yunshu/rill-openwrt-packages
           RILL_REPOSITORY=hello-yunshu/rill-openwrt-packages
-          test -n "$RILL_RELEASE_ID" -a -n "$RILL_QUALIFICATION_SHA256" -a -n "$RILL_SHA256SUMS_SHA256" -a -n "$RILL_SOURCE_COMMIT" -a -n "$RELEASE_TAG"
+          test -n "$RILL_RELEASE_ID" -a -n "$RILL_QUALIFICATION_SHA256" -a -n "$RILL_SHA256SUMS_SHA256" -a -n "$RILL_SOURCE_COMMIT" -a -n "$RILL_PACKAGE_VERSION" -a -n "$RELEASE_TAG"
           actual_id=$(gh release view "$RELEASE_TAG" --repo "$RILL_REPOSITORY" --json databaseId --jq .databaseId)
           test "$actual_id" = "$RILL_RELEASE_ID"
           mkdir -p "$RUNNER_TEMP/rill-release"
@@ -303,11 +348,12 @@ jobs:
             --arg sdkTag "$SDK_TAG" \
             --arg sourceRef "$RELEASE_TAG" \
             --arg sourceCommit "$RILL_SOURCE_COMMIT" \
+            --arg packageVersion "$RILL_PACKAGE_VERSION" \
             --arg packageSha256 "$package_sha" \
             --arg qualificationSha256 "$RILL_QUALIFICATION_SHA256" \
             --arg releaseId "$RILL_RELEASE_ID" \
             --argjson verification "$verification" \
-            '{package:$package,openwrtVersion:$openwrtVersion,packageFormat:$packageFormat,packageArch:$packageArch,target:$target,subtarget:$subtarget,sdkTag:$sdkTag,sourceRef:$sourceRef,sourceCommit:$sourceCommit,packageSha256:$packageSha256,qualificationSha256:$qualificationSha256,releaseId:$releaseId,rillVerification:$verification}' \
+            '{package:$package,openwrtVersion:$openwrtVersion,packageFormat:$packageFormat,packageArch:$packageArch,target:$target,subtarget:$subtarget,sdkTag:$sdkTag,sourceRef:$sourceRef,sourceCommit:$sourceCommit,packageVersion:$packageVersion,packageSha256:$packageSha256,qualificationSha256:$qualificationSha256,releaseId:$releaseId,rillVerification:$verification}' \
             > "$RUNNER_TEMP/out/$OPENWRT_VERSION/$PACKAGE_ARCH/rill-runtime.build-evidence.json"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
@@ -362,6 +408,7 @@ jobs:
       options: --user root
     defaults:
       run:
+        shell: bash
         working-directory: ${{ github.workspace }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -421,8 +468,12 @@ jobs:
                 --output packages.adb ./*.apk
             )
             test -s "$leaf/packages.adb"
+            verify_root="$RUNNER_TEMP/apk-verify-root"
+            mkdir -p "$verify_root/lib/apk/db" "$verify_root/etc/apk"
+            : >"$verify_root/lib/apk/db/installed.adb"
+            : >"$verify_root/etc/apk/world"
             /builder/staging_dir/host/bin/apk \
-              --root "$RUNNER_TEMP/apk-verify-root" \
+              --root "$verify_root" \
               --keys-dir "$RUNNER_TEMP/apk-keys" \
               --repositories-file /dev/null \
               --repository "file://$leaf/packages.adb" update

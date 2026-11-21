@@ -102,7 +102,10 @@ def stage(artifacts: Path, output: Path, selected_packages: set[str] | None = No
                 expected_name = f"rill-runtime-v{release}-{arch}{extension}"
                 matches = [source_dir / expected_name] if (source_dir / expected_name).is_file() else []
             elif extension == ".ipk":
-                pattern = re.compile(rf"^{re.escape(package_name)}_[0-9][A-Za-z0-9.+_~:-]*_(?:all|noarch|[A-Za-z0-9_]+)\.ipk$")
+                # Package archs such as aarch64_cortex-a53 and
+                # arm_cortex-a7_neon-vfpv4 contain hyphens, so the arch field
+                # must allow them or those artifacts are never matched.
+                pattern = re.compile(rf"^{re.escape(package_name)}_[0-9][A-Za-z0-9.+_~:-]*_(?:all|noarch|[A-Za-z0-9_-]+)\.ipk$")
                 matches = sorted(p for p in source_dir.glob("*.ipk") if pattern.fullmatch(p.name))
             else:
                 pattern = re.compile(rf"^{re.escape(package_name)}-[0-9][A-Za-z0-9.+_~:-]*\.apk$")
@@ -146,7 +149,11 @@ def stage(artifacts: Path, output: Path, selected_packages: set[str] | None = No
                         filename.startswith(f"{package_name}_{expected_version}_")
                         or filename.startswith(f"{package_name}_{expected_version}-r")
                         if extension == ".ipk"
-                        else filename.startswith(f"{package_name}-{expected_version}-r")
+                        # APK filenames carry PKG_RELEASE only when it is
+                        # non-zero, so a package at release 0 produces
+                        # name-version.apk without the "-r" suffix.
+                        else filename == f"{package_name}-{expected_version}{extension}"
+                        or filename.startswith(f"{package_name}-{expected_version}-r")
                     )
                     if package_name == "rill-runtime":
                         version_matches = evidence.get("packageVersion") == expected_version

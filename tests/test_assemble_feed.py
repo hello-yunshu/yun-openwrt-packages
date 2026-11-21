@@ -59,6 +59,45 @@ class AssembleFeedTests(unittest.TestCase):
             self.assertFalse(candidate["publishable"])
             self.assertEqual(candidate["status"], "unqualified-candidate")
 
+    def test_accepts_real_hyphenated_arch_and_release_zero_apk_filenames(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            artifacts = root / "artifacts"
+            output = root / "candidate"
+            packages = {"luci-app-openclash", "luci-app-performance-manager-all"}
+            for (release, arch), entries in assemble_feed.expected_files(packages).items():
+                source_dir = artifacts / release / arch
+                source_dir.mkdir(parents=True)
+                for package, extension in entries:
+                    source_ref, package_version = self.fixture_identity(package)
+                    if extension == ".ipk":
+                        filename = (
+                            f"{package}_{package_version}-r7_{arch}.ipk"
+                            if package == "luci-app-performance-manager-all"
+                            else f"{package}_{package_version}_all.ipk"
+                        )
+                    elif package == "luci-app-openclash":
+                        # Release 0 omits the -r suffix from the APK filename.
+                        filename = f"{package}-{package_version}.apk"
+                    else:
+                        filename = f"{package}-{package_version}-r7.apk"
+                    package_file = source_dir / filename
+                    package_file.write_bytes(b"fixture")
+                    (source_dir / f"{package}.build-evidence.json").write_text(json.dumps({
+                        "package": package,
+                        "openwrtVersion": release,
+                        "packageArch": arch,
+                        "packageFormat": "ipk" if extension == ".ipk" else "apk",
+                        "packageSha256": hashlib.sha256(b"fixture").hexdigest(),
+                        "sourceRef": source_ref,
+                        "packageVersion": package_version,
+                    }))
+            assemble_feed.stage(artifacts, output, packages)
+            self.assertTrue(
+                (output / "24.10.8/aarch64_cortex-a53/luci-app-performance-manager-all_1.0.7-r7_aarch64_cortex-a53.ipk").is_file()
+            )
+            self.assertTrue((output / "25.12.6/x86_64/luci-app-openclash-0.48.002.apk").is_file())
+
     def test_rejects_missing_artifacts_before_staging_anything(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
