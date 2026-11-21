@@ -133,6 +133,7 @@ def generate(scope: str = "all-required") -> list[dict]:
                     "packageFormat": release["packageFormat"],
                     "packageManager": release["packageManager"],
                     "packageArch": package_arch,
+                    "rustTarget": arch.get("rustTarget"),
                     "target": target["target"],
                     "subtarget": target["subtarget"],
                     "sdkPrefix": target["sdkPrefix"],

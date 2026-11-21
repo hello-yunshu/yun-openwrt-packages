@@ -129,12 +129,52 @@ jobs:
             git -C /tmp/rill-src fetch -q --depth 1 origin "$RILL_SOURCE_COMMIT"
             git -C /tmp/rill-src checkout -q --detach FETCH_HEAD
             test "$(git -C /tmp/rill-src rev-parse HEAD)" = "$RILL_SOURCE_COMMIT"
-            for dependency in rill-runtime-manager rill-runtime; do
-              mkdir -p "package/$dependency"
-              cp -a "/tmp/rill-src/package/$dependency/." "package/$dependency/"
-            done
+            mkdir -p package/rill-runtime-manager
+            cp -a /tmp/rill-src/package/rill-runtime-manager/. package/rill-runtime-manager/
+            if [[ "$PKG_NAME" == "luci-app-performance-manager-all" ]]; then
+              mkdir -p package/rill-runtime
+              cp -a /tmp/rill-src/package/rill-runtime/. package/rill-runtime/
+            else
+              # The CFI recipe also defines a deprecated, empty
+              # luci-app-cloudflare-ip-rill compatibility stub that depends on
+              # rill-runtime. The feed publishes the base package; the Runtime
+              # itself is imported from qualified release artifacts in its own
+              # matrix rows. Use a build-only provider so the stub can resolve
+              # its static dependency on every supported architecture,
+              # including mipsel, which has no qualified Rust target.
+              mkdir -p package/rill-runtime
+              cat > package/rill-runtime/Makefile <<'EOF'
+          include $(TOPDIR)/rules.mk
+          PKG_NAME:=rill-runtime
+          PKG_VERSION:=0
+          PKG_RELEASE:=1
+          include $(INCLUDE_DIR)/package.mk
+          define Package/rill-runtime
+            SECTION:=utils
+            CATEGORY:=Utilities
+            TITLE:=Build-only Rill Runtime provider for the CFI compatibility stub
+            PKGARCH:=all
+          endef
+          define Build/Compile
+          endef
+          define Package/rill-runtime/install
+          	:
+          endef
+          $(eval $(call BuildPackage,rill-runtime))
+          EOF
+            fi
           fi
           grep -E '^(PKG_NAME|PKG_VERSION|PKG_RELEASE|PKGARCH):=' "package/$PKG_NAME/Makefile" || true
+      - name: Prepare Rust toolchain for the Rill runtime dependency
+        if: ${{ matrix.package == 'luci-app-performance-manager-all' }}
+        working-directory: /tmp/rill-src
+        env:
+          RUST_TARGET: ${{ matrix.rustTarget }}
+          RUST_STAGING_DIR: /builder/staging_dir/host
+        run: |
+          set -euo pipefail
+          test -n "$RUST_TARGET"
+          GITHUB_WORKSPACE=/tmp/rill-src ./scripts/prepare_rust_toolchain.sh
       - name: Prepare APK signing key
         if: ${{ matrix.packageFormat == 'apk' }}
         working-directory: /builder
@@ -188,10 +228,14 @@ jobs:
           EXPECTED_PACKAGE_VERSION: ${{ matrix.expectedPackageVersion }}
         run: |
           set -euo pipefail
+          test -n "$EXPECTED_PACKAGE_VERSION"
+          # Bind the selection to the exact package version so optional
+          # compatibility subpackages (for example the empty CFI -rill stub)
+          # can never be mistaken for the published package.
           if [ "$PKG_FORMAT" = ipk ]; then
-            package_pattern="${PKG_NAME}_*.ipk"
+            package_pattern="${PKG_NAME}_${EXPECTED_PACKAGE_VERSION}"'*.ipk'
           else
-            package_pattern="${PKG_NAME}-*.apk"
+            package_pattern="${PKG_NAME}-${EXPECTED_PACKAGE_VERSION}"'*.apk'
           fi
           mapfile -t packages < <(find bin/packages -type f -name "$package_pattern" -print | sort)
           test "${#packages[@]}" -eq 1
@@ -199,7 +243,7 @@ jobs:
             package_file=$(basename "${packages[0]}")
             case "$PKG_FORMAT" in
               ipk) [[ "$package_file" == "${PKG_NAME}_${EXPECTED_PACKAGE_VERSION}_"*".ipk" || "$package_file" == "${PKG_NAME}_${EXPECTED_PACKAGE_VERSION}-r"*".ipk" ]] ;;
-              apk) [[ "$package_file" == "${PKG_NAME}-${EXPECTED_PACKAGE_VERSION}-r"*".apk" ]] ;;
+              apk) [[ "$package_file" == "${PKG_NAME}-${EXPECTED_PACKAGE_VERSION}.apk" || "$package_file" == "${PKG_NAME}-${EXPECTED_PACKAGE_VERSION}-r"*".apk" ]] ;;
               *) exit 1 ;;
             esac
           fi
