@@ -46,7 +46,7 @@
     "nginx-quic": {
       "repository": "https://github.com/hello-yunshu/yun-openwrt-packages.git",
       "path": "local-packages/nginx-quic",
-      "ref": "dede3e3aaf1b3b481bebd6c4e4e5684a1f592193",
+      "ref": "5729db0d8a7fe9df8836215d426001c6e62495b3",
       "packageVersion": "1.30.7",
       "state": "locked"
     }
