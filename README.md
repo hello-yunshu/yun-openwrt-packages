@@ -125,7 +125,8 @@ apk add luci-app-nginx-manager
   `qualification.json` / `SHA256SUMS` 哈希；有变化时自动提交 `metadata/source-lock.json`。
   新增包只需在 `metadata/mainstream-support.json` 的 `packages` 中加一条声明
   （`repository` + `path` + `architectures`）；调度运行会自动补全并锁定对应的
-  `metadata/source-lock.json` 条目，无需改脚本，也无需预先手写 lock 模板。
+  `metadata/source-lock.json` 条目，缺失的资格矩阵单元格按包声明的架构自动派生为
+  `pending` 或 `unsupported`，无需改脚本、手写 lock 模板或资格行。
 - **构建与发布**：自动运行使用 `all-required` 全矩阵。同一 run 内每个产物通过 digest、sourceRef、
   版本和签名核对后记为 `build-verified`；所有适用单元格都达到 `build-verified` 时，候选即为
   `publishable-candidate` 并自动部署到 GitHub Pages。`build-verified` 只声明构建与签名身份，

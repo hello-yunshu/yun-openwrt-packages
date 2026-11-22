@@ -99,10 +99,9 @@ def validate(data: dict | None = None) -> dict:
     ]
     if len(actual_keys) != len(set(actual_keys)):
         raise ValueError("duplicate package/release/architecture qualification row")
-    if set(actual_keys) != expected_keys:
-        missing = sorted(expected_keys - set(actual_keys))
-        extra = sorted(set(actual_keys) - expected_keys)
-        raise ValueError(f"qualification matrix coverage mismatch; missing={missing}, extra={extra}")
+    extra = sorted(set(actual_keys) - expected_keys)
+    if extra:
+        raise ValueError(f"qualification matrix rows are outside the declared inventory: {extra}")
     arch_by_name = {item["packageArch"]: item for item in architectures}
     release_by_name = {item["version"]: item for item in data["releases"]}
     checks_required = ("build", "dependencyResolution", "signature", "cleanInstall", "upgrade", "runtime")

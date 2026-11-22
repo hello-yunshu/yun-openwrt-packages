@@ -18,8 +18,10 @@ and commits `metadata/source-lock.json` only when something moved. Manual
 Adding a feed package therefore needs no script change and no lock template:
 declare it once in the support matrix (`repository`, `path`, `architectures`),
 and the next run creates the lock entry, fills `ref`/`packageVersion`, and
-promotes it to `locked`. A support entry without `repository`/`path` is reported
-as pending instead of crashing the matrix.
+promotes it to `locked`. Qualification cells that are not recorded yet are
+derived from the declared architectures (`pending` for supported arches,
+`unsupported` for the rest), so a support entry without `repository`/`path` is
+reported as pending instead of crashing the matrix.
 
 The manual steps below remain the recovery path when automatic resolution cannot
 find a public immutable source (for example, a package that must stay pinned).

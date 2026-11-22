@@ -123,6 +123,33 @@ class QualificationLevelTests(unittest.TestCase):
         self.assertEqual(counts["build-install-qualified"], 0)
         self.assertEqual(counts["device-runtime-qualified"], 0)
 
+    def test_new_package_without_qualification_rows_is_derived_at_assembly(self):
+        self.data["packages"]["luci-app-brand-new"] = {
+            "repository": "https://github.com/hello-yunshu/luci-app-brand-new.git",
+            "path": "package/luci-app-brand-new",
+            "packageArch": "all",
+            "architectures": ["x86_64"],
+            "qualificationState": "pending",
+        }
+        validator.validate(self.data)
+        selected = set(self.data["packages"])
+        levels, pending, counts = assembler.qualification_summary(self.data, selected)
+        new_cells = [row for row in levels if row["package"] == "luci-app-brand-new"]
+        self.assertEqual({row["level"] for row in new_cells}, {"pending", "unsupported"})
+        self.assertEqual(len([row for row in new_cells if row["level"] == "unsupported"]), 12)
+        self.assertEqual(counts["pending"], 96)
+        self.assertEqual(counts["unsupported"], 16)
+        self.assertEqual(len([row for row in pending if row["package"] == "luci-app-brand-new"]), 2)
+
+        verified = {
+            (row["package"], row["openwrtVersion"], row["packageArch"])
+            for row in levels if row["level"] == "pending"
+        }
+        _, still_pending, counts = assembler.qualification_summary(self.data, selected, verified)
+        self.assertEqual(still_pending, [])
+        self.assertEqual(counts["build-verified"], 96)
+        self.assertEqual(counts["pending"], 0)
+
 
 if __name__ == "__main__":
     unittest.main()
