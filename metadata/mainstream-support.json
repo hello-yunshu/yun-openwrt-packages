@@ -1964,6 +1964,244 @@
         "upgrade": "pending",
         "runtime": "pending"
       }
+    },
+    {
+      "package": "nginx-quic",
+      "openwrtVersion": "24.10.8",
+      "packageFormat": "ipk",
+      "target": "x86",
+      "subtarget": "64",
+      "packageArch": "x86_64",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "nginx-quic",
+      "openwrtVersion": "24.10.8",
+      "packageFormat": "ipk",
+      "target": "armsr",
+      "subtarget": "armv8",
+      "packageArch": "aarch64_generic",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "nginx-quic",
+      "openwrtVersion": "24.10.8",
+      "packageFormat": "ipk",
+      "target": "mediatek",
+      "subtarget": "filogic",
+      "packageArch": "aarch64_cortex-a53",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "nginx-quic",
+      "openwrtVersion": "24.10.8",
+      "packageFormat": "ipk",
+      "target": "bcm27xx",
+      "subtarget": "bcm2711",
+      "packageArch": "aarch64_cortex-a72",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "nginx-quic",
+      "openwrtVersion": "24.10.8",
+      "packageFormat": "ipk",
+      "target": "bcm27xx",
+      "subtarget": "bcm2712",
+      "packageArch": "aarch64_cortex-a76",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "nginx-quic",
+      "openwrtVersion": "24.10.8",
+      "packageFormat": "ipk",
+      "target": "ipq40xx",
+      "subtarget": "generic",
+      "packageArch": "arm_cortex-a7_neon-vfpv4",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "nginx-quic",
+      "openwrtVersion": "24.10.8",
+      "packageFormat": "ipk",
+      "target": "ramips",
+      "subtarget": "mt7621",
+      "packageArch": "mipsel_24kc",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "nginx-quic",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "x86",
+      "subtarget": "64",
+      "packageArch": "x86_64",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "nginx-quic",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "armsr",
+      "subtarget": "armv8",
+      "packageArch": "aarch64_generic",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "nginx-quic",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "mediatek",
+      "subtarget": "filogic",
+      "packageArch": "aarch64_cortex-a53",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "nginx-quic",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "bcm27xx",
+      "subtarget": "bcm2711",
+      "packageArch": "aarch64_cortex-a72",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "nginx-quic",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "bcm27xx",
+      "subtarget": "bcm2712",
+      "packageArch": "aarch64_cortex-a76",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "nginx-quic",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "ipq40xx",
+      "subtarget": "generic",
+      "packageArch": "arm_cortex-a7_neon-vfpv4",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "nginx-quic",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "ramips",
+      "subtarget": "mt7621",
+      "packageArch": "mipsel_24kc",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
     }
   ]
 }
