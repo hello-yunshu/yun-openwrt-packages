@@ -53,7 +53,11 @@ class AssembleFeedTests(unittest.TestCase):
             manager_version = self.fixture_identity("rill-runtime-manager")[1]
             self.assertTrue((output / f"24.10.8/x86_64/luci-app-cloudflare-ip_{cfi_version}_all.ipk").is_file())
             self.assertTrue((output / f"25.12.6/mipsel_24kc/rill-runtime-manager-{manager_version}-r1.apk").is_file())
-            self.assertTrue((output / "25.12.6/aarch64_cortex-a53/rill-runtime-v25.12.6-aarch64_cortex-a53.apk").is_file())
+            rill_version = self.fixture_identity("rill-runtime")[0].removeprefix("v")
+            # apk downloads by canonical <name>-<version>.apk; the staged tree
+            # must not keep the imported multi-arch asset name.
+            self.assertTrue((output / f"25.12.6/aarch64_cortex-a53/rill-runtime-{rill_version}.apk").is_file())
+            self.assertFalse((output / "25.12.6/aarch64_cortex-a53/rill-runtime-v25.12.6-aarch64_cortex-a53.apk").exists())
             self.assertFalse((output / "24.10.8/mipsel_24kc/luci-app-performance-manager-all-1.0-r1.ipk").exists())
             candidate = json.loads((output / "candidate.json").read_text())
             self.assertTrue(candidate["publishable"])

@@ -23,7 +23,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SUPPORT = ROOT / "metadata/mainstream-support.json"
 QUALIFICATION_LEVELS = {"build-verified", "build-install-qualified", "device-runtime-qualified"}
 sys.path.insert(0, str(ROOT / "scripts"))
-from validate_mainstream_support import validate as validate_support_matrix
+from validate_mainstream_support import covers_release, validate as validate_support_matrix
 
 
 def expected_files(selected_packages: set[str] | None = None) -> dict[tuple[str, str], list[tuple[str, str]]]:
@@ -34,6 +34,8 @@ def expected_files(selected_packages: set[str] | None = None) -> dict[tuple[str,
         if selected_packages is not None and package_name not in selected_packages:
             continue
         for release in data["releases"]:
+            if not covers_release(package, release["version"]):
+                continue
             extension = ".ipk" if release["packageFormat"] == "ipk" else ".apk"
             for arch in package["architectures"]:
                 result.setdefault((release["version"], arch), []).append((package_name, extension))
@@ -52,6 +54,7 @@ def qualification_summary(data: dict, selected: set[str],
         for package in selected
         for release in release_names
         for arch in arch_names
+        if covers_release(data["packages"][package], release)
     }
     rows = [row for row in data.get("qualificationMatrix", []) if row.get("package") in selected]
     recorded = {
@@ -191,6 +194,15 @@ def stage(artifacts: Path, output: Path, selected_packages: set[str] | None = No
                         errors.append(f"{release}/{arch}: package version differs from immutable source lock for {package_name}")
                         continue
             destination = output / release / arch / matches[0].name
+            if package_name == "rill-runtime" and extension == ".apk":
+                # apk resolves downloads as <name>-<version>.apk and the v3
+                # index does not carry filenames, so a published tree that
+                # keeps the imported multi-arch asset name 404s on every
+                # install. Stage it under the canonical name instead; the
+                # imported name stays confined to the artifact directory.
+                full_version = str(locked.get("releaseTag") or "").removeprefix("v")
+                if full_version:
+                    destination = output / release / arch / f"{package_name}-{full_version}{extension}"
             copy_plan.append((matches[0], destination))
             copy_plan.append((evidence_path, output / release / arch / evidence_path.name))
             for provenance in sorted(source_dir.glob("*.qualification.json")) + sorted(source_dir.glob("*.SHA256SUMS")):
