@@ -232,6 +232,22 @@
       "excludedArchitectures": {
         "mipsel_24kc": "Rustup does not provide the target triple; source-built Rust std remains unqualified."
       }
+    },
+    "nginx-quic": {
+      "repository": "https://github.com/hello-yunshu/yun-openwrt-packages.git",
+      "path": "local-packages/nginx-quic",
+      "packageArch": "architecture-specific",
+      "architectures": [
+        "x86_64",
+        "aarch64_generic",
+        "aarch64_cortex-a53",
+        "aarch64_cortex-a72",
+        "aarch64_cortex-a76",
+        "arm_cortex-a7_neon-vfpv4",
+        "mipsel_24kc"
+      ],
+      "track": "pinned",
+      "qualificationState": "pending-current-source-build"
     }
   },
   "qualificationMatrix": [
