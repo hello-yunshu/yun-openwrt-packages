@@ -40,7 +40,7 @@ class BuildMatrixTests(unittest.TestCase):
         self.assertEqual({row["package"] for row in rows}, {
             "luci-app-nginx-manager", "luci-app-upnp-nat-relay", "luci-app-openclash",
             "luci-app-cloudflare-ip", "luci-app-performance-manager-all", "rill-runtime-manager",
-            "rill-runtime", "nginx-quic",
+            "rill-runtime",
         })
         self.assertTrue(all(
             len(row["sourceRef"]) == 40
@@ -80,7 +80,7 @@ class BuildMatrixTests(unittest.TestCase):
 
     def test_candidate_matrix_size_and_signing_axes(self):
         rows = build_matrix.generate("available-only")
-        self.assertEqual(len(rows), 108)
+        self.assertEqual(len(rows), 94)
         self.assertEqual(len(build_matrix.index_matrix("available-only")), 14)
 
     def test_noarch_cfi_and_manager_include_mips(self):

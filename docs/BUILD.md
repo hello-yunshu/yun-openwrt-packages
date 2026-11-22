@@ -128,3 +128,31 @@ $APK mkndx --allow-untrusted --keys-dir keys \
 4. `apk add` 报缺依赖 → 依赖包不在任何已启用源里，先确认官方 `distfeeds.list` 与 `packages.adb` 内容
 5. 包能装但 LuCI 里看不到菜单 → 看 `/usr/share/luci/menu.d/*.json` 是否随包安装，清缓存后重登
 6. 中文界面不生效 → 检查包内 `.lmo` 的文件名语言段是否为 `zh-cn`
+
+## 10. 已放弃：自带 QUIC 支持的 nginx 分叉（2026-11-23 记录）
+
+`luci-app-nginx-manager` 的「HTTP/3 ✘ 缺少」来自上游默认值：`net/nginx/Config_ssl.in`
+里 `NGINX_HTTP_QUIC` 默认 `n`，所以官方 `nginx-ssl` 不带 `--with-http_v3_module`。
+自己编一个 QUIC 版做出完整 drop-in（`PROVIDES:=nginx nginx-ssl`、同版 nginx、同
+`--modules-path`）技术上可行，但评估后**主动放弃**：
+
+- 收益：只对浏览器访问路由器 Web UI 生效，局域网链路干净，体验提升接近零。
+- 成本：分叉要永久跟两件事——上游 `nginx` 版本（`nginx-mod-ubus` 动态模块按版本校验，
+  `--with-compat` 只放宽编译签名不放宽版本）和上游 `patches/nginx/*`（补丁落在
+  `auto/*`、`src/event/quic/*`，随 nginx 升版位移）；一旦漏跟，坏的是 LuCI 的 nginx
+  入口，故障面远大于少一个 HTTP/3。
+
+若以后重启这条路，先看这五个已经踩过的坑，能省几小时：
+
+1. `PKG_BUILD_DIR` 必须等于 tarball 顶层目录 `nginx-<PKG_VERSION>`，否则解包到隔壁、编译目录为空。
+2. SDK 里 `CONFIG_VERSION_NUMBER` 是空的，`include/version.mk` 只被顶层 make 引入；包内要
+   `-include $(INCLUDE_DIR)/version.mk` 才能拿到 `VERSION_NUMBER`。
+3. nginx 的 `configure` 不是 autotools，SDK 预置的 `--target/--host/--build` 它会直接报错；
+   要把 `CONFIGURE_ARGS` 整体替换（上游靠 `201-ignore-invalid-options.patch` 降级成 warning）。
+4. 上游 `patches/nginx/` 不是可选的：`101/102/104` 把「运行测试程序」降级成「只编译」（交叉编译
+   必需），`103` 补 musl 的 `NGX_SYS_NERR`，`300` 修 OpenSSL 3 下的 QUIC 编译。
+5. `make package/<pkg>/compile` 不会装也不会编 feed 依赖；`libopenssl` 会顺带拉
+   `cryptodev-linux → kmod → 内核`，代价远大于预期。
+
+重新评估的触发条件：上游把 `Config_ssl.in` 的 `NGINX_HTTP_QUIC` 默认改成 `y`
+（届时官方包直接带 HTTP/3，无需本仓库做任何事）。
