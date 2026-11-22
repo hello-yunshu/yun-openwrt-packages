@@ -15,9 +15,11 @@ package listed in `metadata/mainstream-support.json`, pins the tag commit and
 and commits `metadata/source-lock.json` only when something moved. Manual
 `workflow_dispatch` runs on `main` follow the same path.
 
-Adding a feed package therefore needs no script change: add its support-matrix
-rows plus one lock template entry (`repository`, `path`, `state: pending`). The
-next run fills `ref`/`packageVersion` and promotes the entry to `locked`.
+Adding a feed package therefore needs no script change and no lock template:
+declare it once in the support matrix (`repository`, `path`, `architectures`),
+and the next run creates the lock entry, fills `ref`/`packageVersion`, and
+promotes it to `locked`. A support entry without `repository`/`path` is reported
+as pending instead of crashing the matrix.
 
 The manual steps below remain the recovery path when automatic resolution cannot
 find a public immutable source (for example, a package that must stay pinned).

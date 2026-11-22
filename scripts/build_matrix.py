@@ -12,14 +12,17 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SUPPORT = ROOT / "metadata/mainstream-support.json"
 SOURCE_LOCK = ROOT / "metadata/source-lock.json"
-SOURCE_IDENTITIES = {
-    "luci-app-nginx-manager": ("https://github.com/hello-yunshu/luci-app-nginx-manager", "."),
-    "luci-app-cloudflare-ip": ("https://github.com/hello-yunshu/luci-app-cloudflare-ip", "package/luci-app-cloudflare-ip"),
-    "luci-app-upnp-nat-relay": ("https://github.com/hello-yunshu/luci-app-upnp-nat-relay", "package/luci-app-upnp-nat-relay"),
-    "luci-app-openclash": ("https://github.com/vernesong/OpenClash", "luci-app-openclash"),
-    "luci-app-performance-manager-all": ("https://github.com/hello-yunshu/luci-app-performance-manager", "package/luci-app-performance-manager-all"),
-    "rill-runtime-manager": ("https://github.com/hello-yunshu/rill-openwrt-packages", "package/rill-runtime-manager"),
-}
+
+
+def declared_identity(package: dict) -> tuple[str, object]:
+    """Return the expected (repository, path) declared by the support matrix.
+
+    The support matrix is the single package inventory, so adding a package
+    never requires editing this script: its entry declares where the source
+    comes from and the lock is validated against it.
+    """
+    repository = str(package.get("repository", "")).removesuffix(".git")
+    return repository, package.get("path")
 
 
 def load_matrix() -> dict:
@@ -53,7 +56,10 @@ def pending_source_locks(data: dict | None = None) -> list[tuple[str, str]]:
             continue
         package_lock = package_locks.get(package_name, {})
         ref = package_lock.get("ref")
-        expected_repository, expected_path = SOURCE_IDENTITIES[package_name]
+        expected_repository, expected_path = declared_identity(data["packages"][package_name])
+        if not expected_repository or not isinstance(expected_path, str) or not expected_path:
+            pending.append((package_name, "support matrix entry must declare repository and path"))
+            continue
         package_version = package_lock.get("packageVersion")
         repository = str(package_lock.get("repository", "")).removesuffix(".git")
         source_path = package_lock.get("path")

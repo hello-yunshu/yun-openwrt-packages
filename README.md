@@ -123,8 +123,9 @@ apk add luci-app-nginx-manager
   OpenClash，以及 Rill Runtime 和 Rill Runtime Manager。`scripts/update_source_lock.py` 解析每个上游
   最新的正式 Release（非 draft、非 prerelease），固定 tag 对应的 commit、`PKG_VERSION`，以及 Rill 的
   `qualification.json` / `SHA256SUMS` 哈希；有变化时自动提交 `metadata/source-lock.json`。
-  新增包只需在 `metadata/mainstream-support.json` 和 `metadata/source-lock.json` 中各加一条
-  模板（`repository` + `path`，`state: pending`），下一次运行会自动解析并锁定，无需改脚本。
+  新增包只需在 `metadata/mainstream-support.json` 的 `packages` 中加一条声明
+  （`repository` + `path` + `architectures`）；调度运行会自动补全并锁定对应的
+  `metadata/source-lock.json` 条目，无需改脚本，也无需预先手写 lock 模板。
 - **构建与发布**：自动运行使用 `all-required` 全矩阵。同一 run 内每个产物通过 digest、sourceRef、
   版本和签名核对后记为 `build-verified`；所有适用单元格都达到 `build-verified` 时，候选即为
   `publishable-candidate` 并自动部署到 GitHub Pages。`build-verified` 只声明构建与签名身份，

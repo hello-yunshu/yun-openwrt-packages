@@ -96,6 +96,62 @@ class BuildMatrixTests(unittest.TestCase):
         data = build_matrix.load_matrix()
         self.assertEqual(len(data["packages"]["rill-runtime"]["architectures"]), 6)
 
+    def test_new_support_package_is_built_without_script_changes(self):
+        support = build_matrix.load_matrix()
+        lock = json.loads(build_matrix.SOURCE_LOCK.read_text())
+        support["packages"]["luci-app-brand-new"] = {
+            "repository": "https://github.com/hello-yunshu/luci-app-brand-new.git",
+            "path": "package/luci-app-brand-new",
+            "packageArch": "all",
+            "architectures": ["x86_64"],
+            "qualificationState": "pending",
+        }
+        lock["packages"]["luci-app-brand-new"] = {
+            "repository": "https://github.com/hello-yunshu/luci-app-brand-new.git",
+            "path": "package/luci-app-brand-new",
+            "ref": "a" * 40,
+            "packageVersion": "1.0.0",
+            "state": "locked",
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            directory = Path(directory)
+            (directory / "support.json").write_text(json.dumps(support), encoding="utf-8")
+            (directory / "lock.json").write_text(json.dumps(lock), encoding="utf-8")
+            original_support, original_lock = build_matrix.SUPPORT, build_matrix.SOURCE_LOCK
+            build_matrix.SUPPORT = directory / "support.json"
+            build_matrix.SOURCE_LOCK = directory / "lock.json"
+            try:
+                rows = [
+                    row for row in build_matrix.generate("available-only")
+                    if row["package"] == "luci-app-brand-new"
+                ]
+            finally:
+                build_matrix.SUPPORT, build_matrix.SOURCE_LOCK = original_support, original_lock
+        self.assertEqual({row["sourceRef"] for row in rows}, {"a" * 40})
+        self.assertEqual({row["openwrtVersion"] for row in rows}, {"24.10.8", "25.12.6"})
+
+    def test_undeclared_support_package_is_pending_instead_of_crashing(self):
+        support = build_matrix.load_matrix()
+        support["packages"]["luci-app-undeclared"] = {
+            "packageArch": "all",
+            "architectures": ["x86_64"],
+            "qualificationState": "pending",
+        }
+        lock = json.loads(build_matrix.SOURCE_LOCK.read_text())
+        with tempfile.TemporaryDirectory() as directory:
+            directory = Path(directory)
+            (directory / "support.json").write_text(json.dumps(support), encoding="utf-8")
+            (directory / "lock.json").write_text(json.dumps(lock), encoding="utf-8")
+            original_support, original_lock = build_matrix.SUPPORT, build_matrix.SOURCE_LOCK
+            build_matrix.SUPPORT = directory / "support.json"
+            build_matrix.SOURCE_LOCK = directory / "lock.json"
+            try:
+                pending = dict(build_matrix.pending_source_locks())
+            finally:
+                build_matrix.SUPPORT, build_matrix.SOURCE_LOCK = original_support, original_lock
+        self.assertIn("luci-app-undeclared", pending)
+        self.assertIn("declare repository and path", pending["luci-app-undeclared"])
+
 
 if __name__ == "__main__":
     unittest.main()

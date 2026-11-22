@@ -197,6 +197,27 @@ def validate_rill_qualification(qualification: dict, tag: str) -> tuple[str, str
     return commit, version
 
 
+def _declared_source(metadata: dict, entry: dict | None) -> tuple[str | None, str | None]:
+    """Return the source identity declared by the support matrix or the lock.
+
+    The support matrix is the authoritative package inventory, so a new package
+    only needs ``repository`` and ``path`` there; the lock entry is optional and
+    is created automatically.  If both places declare the same field they must
+    agree, otherwise the refresh fails closed instead of silently repointing a
+    package at another repository.
+    """
+    stored = entry if isinstance(entry, dict) else {}
+    for field in ("repository", "path"):
+        declared = metadata.get(field)
+        locked = stored.get(field)
+        if declared and locked and declared != locked:
+            raise ValueError(
+                f"package source {field} disagrees between the support matrix and "
+                f"the source lock: {declared!r} != {locked!r}"
+            )
+    return metadata.get("repository") or stored.get("repository"), metadata.get("path") or stored.get("path")
+
+
 def _package_identity(entry: dict) -> dict:
     return {key: entry.get(key) for key in ("repository", "path", "ref", "packageVersion", "state")}
 
@@ -264,7 +285,7 @@ def update(lock: dict, release_api=None, tag_resolver=None, version_reader=None,
     packages = lock.setdefault("packages", {})
     previous_rill = lock.get("rillRuntime") or {}
 
-    for name in support:
+    for name, metadata in support.items():
         if name == RILL_RUNTIME:
             if not isinstance(lock.get("rillRuntime"), dict):
                 raise ValueError(
@@ -272,10 +293,16 @@ def update(lock: dict, release_api=None, tag_resolver=None, version_reader=None,
                     "metadata/source-lock.json (rillRuntime)"
                 )
             continue
-        if not isinstance(packages.get(name), dict):
-            raise ValueError(
-                f"support matrix package {name} is missing from metadata/source-lock.json"
-            )
+        entry = packages.get(name)
+        if not isinstance(entry, dict):
+            # A new package needs no lock template: the support matrix alone
+            # declares where it comes from and the entry is created below.
+            repository, path = _declared_source(metadata, None)
+            if not repository or not path:
+                raise ValueError(
+                    f"support matrix package {name} is missing from metadata/source-lock.json "
+                    "and declares no repository/path in the support matrix"
+                )
 
     package_commit = None
     desired_rill = None
@@ -321,16 +348,17 @@ def update(lock: dict, release_api=None, tag_resolver=None, version_reader=None,
     for name, metadata in support.items():
         if name == RILL_RUNTIME:
             continue
-        entry = packages[name]
-        track = entry.get("track", _default_track(metadata, entry.get("repository")))
+        entry = packages.get(name) or {}
+        repository, path = _declared_source(metadata, entry)
+        track = entry.get("track", _default_track(metadata, repository))
         if track not in TRACKS:
             raise ValueError(f"package {name} uses unsupported track: {track!r}")
         if track == "pinned":
             continue
-        repository = entry.get("repository")
-        path = entry.get("path")
         if not isinstance(repository, str) or not repository or not isinstance(path, str) or not path:
-            raise ValueError(f"package {name} lock entry must define repository and path")
+            raise ValueError(
+                f"package {name} must declare repository and path in the support matrix or source lock"
+            )
         if track == "rill-release":
             if package_commit is None:
                 raise ValueError(

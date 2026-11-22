@@ -214,29 +214,44 @@ class UpdateSourceLockTests(unittest.TestCase):
                 lock, upstream, support_packages={"rill-runtime": {"rillRuntime": "provider"}}
             )
 
-    def test_new_support_package_is_resolved_from_a_lock_template(self):
+    def test_new_support_package_is_resolved_without_a_lock_template(self):
         upstream = FakeUpstream()
-        lock = {
-            "schemaVersion": 1,
-            "packages": {
-                "luci-app-brand-new": {
-                    "repository": "https://github.com/example/luci-app-brand-new.git",
-                    "path": "package/luci-app-brand-new",
-                    "state": "pending",
-                }
-            },
+        lock = {"schemaVersion": 1, "packages": {}}
+        support = {
+            "luci-app-brand-new": {
+                "repository": "https://github.com/example/luci-app-brand-new.git",
+                "path": "package/luci-app-brand-new",
+            }
         }
-        with tempfile.TemporaryDirectory() as directory:
-            support_path = Path(directory) / "mainstream-support.json"
-            support_path.write_text(
-                json.dumps({"packages": {"luci-app-brand-new": {}}}), encoding="utf-8"
-            )
-            changes = apply_update(lock, upstream, support_path=support_path)
+        changes = apply_update(lock, upstream, support_packages=support)
         entry = lock["packages"]["luci-app-brand-new"]
+        self.assertEqual(entry["repository"], "https://github.com/example/luci-app-brand-new.git")
+        self.assertEqual(entry["path"], "package/luci-app-brand-new")
         self.assertEqual(entry["ref"], commit_for(upstream.standard_tag))
         self.assertEqual(entry["packageVersion"], upstream.standard_version)
         self.assertEqual(entry["state"], "locked")
         self.assertTrue(changes)
+
+    def test_rejects_source_identity_drift_between_support_and_lock(self):
+        upstream = FakeUpstream()
+        lock = {
+            "schemaVersion": 1,
+            "packages": {
+                "luci-app-drift": {
+                    "repository": "https://github.com/hello-yunshu/luci-app-drift.git",
+                    "path": "package/luci-app-drift",
+                    "state": "pending",
+                }
+            },
+        }
+        support = {
+            "luci-app-drift": {
+                "repository": "https://github.com/someone-else/luci-app-drift.git",
+                "path": "package/luci-app-drift",
+            }
+        }
+        with self.assertRaisesRegex(ValueError, "disagrees between the support matrix"):
+            apply_update(lock, upstream, support_packages=support)
 
     def test_support_package_missing_from_lock_fails_closed(self):
         upstream = FakeUpstream()
