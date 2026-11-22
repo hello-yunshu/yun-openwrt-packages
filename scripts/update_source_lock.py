@@ -350,7 +350,10 @@ def update(lock: dict, release_api=None, tag_resolver=None, version_reader=None,
             continue
         entry = packages.get(name) or {}
         repository, path = _declared_source(metadata, entry)
-        track = entry.get("track", _default_track(metadata, repository))
+        # The lock entry wins when it declares a track; the support matrix is
+        # the next authority (it declares "pinned" for packages whose version
+        # is dictated per release series), and only then infer from the repo.
+        track = entry.get("track") or metadata.get("track") or _default_track(metadata, repository)
         if track not in TRACKS:
             raise ValueError(f"package {name} uses unsupported track: {track!r}")
         if track == "pinned":

@@ -232,6 +232,40 @@ class UpdateSourceLockTests(unittest.TestCase):
         self.assertEqual(entry["state"], "locked")
         self.assertTrue(changes)
 
+    def test_support_matrix_pinned_track_never_touches_upstream_releases(self):
+        class NoContactUpstream:
+            def releases(self, slug):
+                raise AssertionError("pinned package must not list upstream releases")
+
+            def resolve(self, repository, tag):
+                raise AssertionError("pinned package must not resolve tags")
+
+            def read_version(self, repository, commit, path):
+                raise AssertionError("pinned package must not read upstream versions")
+
+            def download(self, repository_url, tag, directory):
+                raise AssertionError("pinned package must not download Rill evidence")
+
+        lock = {
+            "schemaVersion": 1,
+            "packages": {
+                "nginx-quic": {
+                    "repository": "https://github.com/hello-yunshu/yun-openwrt-packages.git",
+                    "path": "local-packages/nginx-quic",
+                    "ref": "1" * 40,
+                    "packageVersion": "1.30.7",
+                    "state": "locked",
+                }
+            },
+        }
+        changes = apply_update(
+            lock,
+            NoContactUpstream(),
+            support_packages={"nginx-quic": {"track": "pinned"}},
+        )
+        self.assertEqual(changes, [])
+        self.assertEqual(lock["packages"]["nginx-quic"]["ref"], "1" * 40)
+
     def test_rejects_source_identity_drift_between_support_and_lock(self):
         upstream = FakeUpstream()
         lock = {
