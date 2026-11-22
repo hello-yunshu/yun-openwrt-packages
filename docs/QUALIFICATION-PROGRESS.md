@@ -1,19 +1,54 @@
 # Unified feed qualification progress
 
-Verified 2026-11-21. This records local package and repository tests; it does not publish an OpenWrt feed or claim device-runtime qualification. The local Runtime install observations below used the former Preview package and do not qualify the new canonical Stable package.
+Verified 2026-11-21 (local package/repository tests) and 2026-11-22 (published versioned feed, QEMU device-runtime verification).
 
-## Release and architecture evidence
+Two kinds of evidence live here. The 2026-11-21 section records host-side IPK/APK transactions against local test feeds that used temporary keys. The 2026-11-22 section records the production `https://hello-yunshu.github.io/yun-openwrt-packages/` feed, signed by CI, consumed by a published YunWrt image inside QEMU. The 2026-11-21 Runtime observations used the former Preview package and do not qualify the canonical Stable package; the 2026-11-22 observations do.
+
+## Published versioned feed (2026-11-22)
+
+The feed now publishes every qualified package into `<openwrt-version>/<package-arch>/` with canonical `apk` filenames (`<name>-<version>.apk`, required because the v3 index does not carry filenames) plus `packages.adb`, `SHA256SUMS` and per-package evidence files. Indexes are signed by the CI key; the public key ships in the image at `/etc/apk/keys/yun-feed.rsa.pub`.
+
+| OpenWrt | Architecture | Artifacts |
+|---|---|---|
+| 25.12.6 | `x86_64` | `luci-app-performance-manager-all-1.0.7-r7.apk`, `rill-runtime-1.5.6-r8.apk`, `rill-runtime-manager-1.0.0-r2.apk`, `luci-app-cloudflare-ip-2.6.2-r28.apk`, `luci-app-nginx-manager-1.8.11-r34.apk`, `luci-app-upnp-nat-relay-1.3.16-r16.apk`, `luci-app-openclash-0.48.002.apk` |
+
+Provenance: feed assembly run [45060083625](https://github.com/hello-yunshu/yun-openwrt-packages/actions/runs/45060083625) published the signed index; image build run [45063071232](https://github.com/hello-yunshu/YunWrt/actions/runs/45063071232) consumed it. PM source is locked to `luci-app-performance-manager@428b526886abda48e949638deb9e341c92bdc2a1`; the Runtime lock stays on the immutable Stable release `v1.5.6-r8` (release id 453531268).
+
+## Device-runtime verification: PM 25.12.6 / x86_64 (2026-11-22)
+
+Environment: the published `YunWrt-x86-64-25.12.6-2026-11-22-ext4-combined-efi.img.gz` booted in QEMU (`q35`, OVMF, TCG) — the reference execution environment for this x86_64 disk-image target. The harness supplied SLIRP networking (`eth1` 10.0.2.15/24, DNS 10.0.2.3) so `apk` could reach the production feed URL that the image ships in `/etc/apk/repositories.d/yun-feed.list`.
+
+Procedure and observations, in one boot:
+
+1. **Pristine state.** `apk list --installed` reports `luci-app-performance-manager-all-1.0.7-r7 x86_64`, `rill-runtime-1.5.6-r8 x86_64` and `rill-runtime-manager-1.0.0-r2 noarch`. `/etc/config/performance-manager` has 45 lines; `/etc/init.d/performance-manager` is enabled; `pgrep` finds the service; `ubus list performance-manager` returns the object; `luci-app-performance-manager.json` is in `/usr/share/luci/menu.d/`; `/usr/bin/rill-runtime` is executable.
+2. **Downgrade.** The historical all-in-one `luci-app-performance-manager-all-1.0.3-r1.apk` (GitHub release `v1.0.3`) was fetched over the harness LAN and installed with `apk add --allow-untrusted`. The transaction purged `rill-runtime`, because the 1.0.3 package does not depend on it.
+3. **Upgrade.** After `apk update` (`OK: 11564 distinct packages available`, `apk policy` showing `1.0.7-r7` from the feed index), `apk add "luci-app-performance-manager-all=1.0.7-r7"` executed the replace transaction without `--allow-untrusted`:
+   ```
+   (1/2) Installing rill-runtime (1.5.6-r8)
+     Executing rill-runtime-1.5.6-r8.pre-install
+     Executing rill-runtime-1.5.6-r8.post-install
+   (2/2) Upgrading luci-app-performance-manager-all (1.0.3-r1 -> 1.0.7-r7)
+     Executing luci-app-performance-manager-all-1.0.7-r7.post-upgrade
+   OK: 216.2 MiB in 497 packages
+   ```
+   Afterwards the installed version is `1.0.7-r7 x86_64`, the config is 45 lines, the service process is running, `/usr/bin/rill-runtime` is executable again, and `/lib/upgrade/keep.d/performance-manager{,-rill}` survived.
+
+Operational note recorded by this run: plain `apk upgrade` (and a name-only `apk add`) skipped the 1.0.3 install without an error, because that version exists only as a local-file install — no repository carries it, so apk has no upgrade candidate for it. The version-pinned `apk add` performed the identical replace transaction. Users moving between published feed versions are unaffected; this caveat applies only to locally installed files.
+
+Caveats: the runtime evidence is QEMU (TCG) execution of the published image, not physical x86 hardware. The upgrade transaction starts from a locally installed old artifact because the feed only publishes the current version. No ARM/Router device runtime was executed.
+
+## Release and architecture evidence (2026-11-21)
 
 | OpenWrt | Format | Target/package architecture | Results |
 |---|---|---|---|
 | 24.10.8 | IPK/opkg | ipq40xx/generic, `arm_cortex-a7_neon-vfpv4` | PM 1.0.7-r6 installed through host opkg with dependencies from official 24.10.8 feeds plus the local feed; it installed Runtime Manager and the former Preview package. CFI 2.6.2-r27 installed from a separate local feed without Runtime and pulled only Runtime Manager as its Runtime-related dependency. |
 | 25.12.6 | APK/apk-tools | x86/64, `x86_64` | CFI installed without Runtime; PM installed and pulled Runtime Manager and the former Preview package. Signed temporary APK repository was accepted; missing-key install failed closed. |
 
-The 24.10 opkg install transaction used a local feed without enabling mandatory signature checks; separately, host opkg tests verified that a temporary key accepts the signature over `Packages.gz` (the bytes opkg downloads) and rejects a signature over uncompressed `Packages`. The 25.12 APK install used a temporary trusted key, and an install without a key failed closed. Production CI secrets and release signatures were not used.
+The 24.10 opkg install transaction used a local feed without enabling mandatory signature checks; separately, host opkg tests verified that a temporary key accepts the signature over `Packages.gz` (the bytes opkg downloads) and rejects a signature over uncompressed `Packages`. The 25.12 APK install used a temporary trusted key, and an install without a key failed closed. Production CI secrets and release signatures were not used in these 2026-11-21 tests; the 2026-11-22 verification above is the one that exercised the production feed.
 
 ## Artifacts
 
-Hashes below identify local artifacts from the working tree and SDK runs. They are not immutable feed releases.
+Hashes below identify local artifacts from the 2026-11-21 working tree and SDK runs. They are not immutable feed releases. The 2026-11-22 published artifacts are listed in the versioned-feed table above; their SHA-256 values are in each architecture's `SHA256SUMS`.
 
 | OpenWrt / architecture | Package | Version | SHA-256 |
 |---|---|---|---|
@@ -28,13 +63,16 @@ Hashes below identify local artifacts from the working tree and SDK runs. They a
 
 The 24.10 ARMv7 Runtime ELF is 32-bit ARM EABI5, hard-float, with `/lib/ld-musl-armhf.so.1`. Runtime execution on ARMv7 hardware was not performed.
 
-The 24.10 PM SDK package target produced an IPK while the SDK invocation used `make -i` to bypass unrelated LuCI SDK dependency build failures. The PM IPK itself installed and its dependency graph resolved against release feeds, but this does not count as a clean full-SDK dependency build.
+The 24.10 PM SDK package target produced an IPK while the SDK invocation used `make -i` to bypass unrelated LuCI SDK dependency failures. The PM IPK itself installed and its dependency graph resolved against release feeds, but this does not count as a clean full-SDK dependency build.
+
+## Qualification state
+
+One matrix cell has reached `device-runtime-qualified`: `luci-app-performance-manager-all` on 25.12.6 / `x86_64`, backed by the QEMU verification above. Its evidence keys record the immutable source commit, the publishing and consuming CI runs, the published artifact hash, the production signature path, the dependency reinstall, the pristine install state, the end-to-end upgrade transaction and the runtime observations.
 
 ## Remaining qualification gaps
 
-- Matrix rows remain `pending` except explicitly unsupported package/architecture pairs. The selected local rows record partial checks but do not reach `build-install-qualified`: exact architecture upgrade tests and immutable source/release evidence are missing.
-- No physical device/runtime test was performed; no build-only result is labeled device-runtime-qualified.
-- The 24.10 signature verification used a temporary test key. Production usign trust installation and production index signature are not available locally.
-- The 25.12 APK signing/install test used a temporary test key. Production private keys are CI secrets and no release job was executed.
-- Source locks for CFI, PM, and Rill Runtime Manager point to immutable pushed commits. The canonical Stable Runtime lock remains pending until its new six-target × two-release qualification is promoted to an immutable Rill release; the old Preview artifacts are historical evidence only.
-- The rest of the selected architecture/release matrix has not completed its package build/install/upgrade runs. See `metadata/mainstream-support.json` for per-package entries.
+- Every other matrix cell is still `pending` or explicitly `unsupported`. Those cells carry partial historical observations only; they lack exact-architecture upgrade transactions and immutable published-release evidence.
+- Device-runtime evidence exists for the x86_64 disk-image target in QEMU only. No physical x86 hardware and no ARM router devices have been exercised.
+- The 24.10 `arm_cortex-a7_neon-vfpv4` cell still depends on the 2026-11-21 local-feed observations and has no published-feed upgrade transaction.
+- Source locks for CFI, PM, and Rill Runtime Manager point to immutable pushed commits; the canonical Stable Runtime lock is bound to Rill release `v1.5.6-r8`. The old Preview artifacts remain historical evidence only and are not part of the published feed.
+- The remaining feed architectures (24.10.8 IPK targets and the five non-x86_64 APK targets) have built artifacts published but no install/upgrade/runtime verification runs.

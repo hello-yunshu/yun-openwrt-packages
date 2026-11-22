@@ -874,21 +874,25 @@
       "target": "x86",
       "subtarget": "64",
       "packageArch": "x86_64",
-      "status": "pending",
+      "status": "device-runtime-qualified",
       "checks": {
         "build": "passed",
         "dependencyResolution": "passed",
-        "signature": "passed-temporary-test-key",
+        "signature": "passed",
         "cleanInstall": "passed",
-        "upgrade": "pending",
-        "runtime": "not-evaluated-device"
+        "upgrade": "passed",
+        "runtime": "passed"
       },
       "evidence": {
-        "artifactSha256": "554eed3a9a61b447be31cea3da17b90367dbc6bf58c1a85bdf62990b0abddb3a",
-        "packageObservation": "PM 1.0.7-r6 APK built and clean-installed; pulled Runtime Manager and the legacy Preview package.",
-        "signatureScope": "APK test repository used a temporary trusted key; no-key installation failed closed. Production CI key/release signature was not tested.",
-        "upgradeObservation": "No end-to-end package upgrade transaction for this exact release/architecture was run.",
-        "runtimeObservation": "No physical device/target emulator execution was performed.",
+        "artifactSha256": "622b512160efba3b547384391f122a2d5db9efe12dcb859db1cf935124271128",
+        "sourceCommit": "luci-app-performance-manager@428b526886abda48e949638deb9e341c92bdc2a1 (package/luci-app-performance-manager-all, PKG_VERSION 1.0.7, PKG_RELEASE 7)",
+        "buildRun": "https://github.com/hello-yunshu/yun-openwrt-packages/actions/runs/45060083625 published the signed 25.12.6/x86_64 feed index; https://github.com/hello-yunshu/YunWrt/actions/runs/45063071232 installed it into the YunWrt x86-64 25.12.6 image",
+        "buildEvidence": "Published apk sha256 622b512160efba3b547384391f122a2d5db9efe12dcb859db1cf935124271128 matches the feed SHA256SUMS; the ImageBuilder log records '(398/497) Installing luci-app-performance-manager-all (1.0.7-r7)' together with rill-runtime 1.5.6-r8 and rill-runtime-manager 1.0.0-r2.",
+        "signatureEvidence": "The upgrade transaction installed luci-app-performance-manager-all=1.0.7-r7 from the production CI-signed index (packages.adb) without --allow-untrusted, using the yun-feed.rsa.pub key shipped in the image at /etc/apk/keys.",
+        "dependencyEvidence": "The upgrade transaction re-installed rill-runtime 1.5.6-r8 (pre-install and post-install scripts executed) and kept rill-runtime-manager 1.0.0-r2; the full dependency graph resolved from the versioned feed.",
+        "installEvidence": "Pristine image state: apk list --installed reports luci-app-performance-manager-all 1.0.7-r7 x86_64 with rill-runtime 1.5.6-r8 and rill-runtime-manager 1.0.0-r2; /etc/config/performance-manager holds 45 lines; the init script is enabled.",
+        "upgradeEvidence": "Downgraded to the historical 1.0.3-r1 all-in-one APK (installed from a local file because no repository carries it), then upgraded back with 'apk add luci-app-performance-manager-all=1.0.7-r7' after 'apk update': apk reported '(2/2) Upgrading luci-app-performance-manager-all (1.0.3-r1 -> 1.0.7-r7)' and executed the 1.0.7-r7 post-upgrade script; the config file and /lib/upgrade/keep.d/performance-manager* survived. Plain 'apk upgrade' skips a local-file install without error, so the pinned add performed the identical replace transaction.",
+        "runtimeEvidence": "Executed on the published x86_64 image in QEMU q35/OVMF (TCG): ubus object 'performance-manager' and LuCI menu luci-app-performance-manager.json are present, and after the upgrade the service process was running (pgrep) with /usr/bin/rill-runtime executable restored.",
         "packageArchitecture": "target-specific, matching the PM package policy test and architecture-specific Runtime dependency"
       }
     },
