@@ -4,22 +4,22 @@
     "luci-app-nginx-manager": {
       "repository": "https://github.com/hello-yunshu/luci-app-nginx-manager.git",
       "path": ".",
-      "ref": "3f3bf4dbf5d90b9c69ffb6565eea79c4205bf948",
-      "packageVersion": "1.8.8",
+      "ref": "070bbb15c3058ad4f99131631994ce2d32870edd",
+      "packageVersion": "1.8.11",
       "state": "locked"
     },
     "luci-app-cloudflare-ip": {
       "repository": "https://github.com/hello-yunshu/luci-app-cloudflare-ip.git",
       "path": "package/luci-app-cloudflare-ip",
-      "ref": "7b6f5066d9a66c4f313b61fad846b9887a56fc30",
+      "ref": "5f540aac8b56b73ab00074c8a76dd0707c0b6b76",
       "state": "locked",
       "packageVersion": "2.6.2"
     },
     "luci-app-upnp-nat-relay": {
       "repository": "https://github.com/hello-yunshu/luci-app-upnp-nat-relay.git",
       "path": "package/luci-app-upnp-nat-relay",
-      "ref": "d8a3a9e9a9a37403fd1086315409d91a5c04a67c",
-      "packageVersion": "1.3.13",
+      "ref": "f0aae81f424fae214492e387b1cceb72bcb6fcfa",
+      "packageVersion": "1.3.16",
       "state": "locked"
     },
     "luci-app-openclash": {
@@ -32,7 +32,7 @@
     "luci-app-performance-manager-all": {
       "repository": "https://github.com/hello-yunshu/luci-app-performance-manager.git",
       "path": "package/luci-app-performance-manager-all",
-      "ref": "8dae333d67f8e19cbf2407923a2cc699c385f665",
+      "ref": "428b526886abda48e949638deb9e341c92bdc2a1",
       "state": "locked",
       "packageVersion": "1.0.7"
     },

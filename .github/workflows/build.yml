@@ -16,6 +16,11 @@ on:
         required: true
         type: boolean
         default: false
+  repository_dispatch:
+    types: [upstream-release]
+  schedule:
+    # Every six hours. The refresh job only commits when an upstream release moved.
+    - cron: '17 */6 * * *'
 
 permissions:
   contents: read
@@ -26,24 +31,71 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  refresh-locks:
+    name: Track latest upstream releases
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    outputs:
+      commit_sha: ${{ steps.commit.outputs.commit_sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: true
+      - name: Refresh and commit the immutable source lock
+        id: commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          sha=$(git rev-parse HEAD)
+          if [ "$GITHUB_REF" = refs/heads/main ]; then
+            python3 scripts/update_source_lock.py --write | tee "$RUNNER_TEMP/update.json"
+            if ! git diff --quiet -- metadata/source-lock.json; then
+              python3 -m unittest discover -s tests -p 'test_*.py'
+              git config user.name 'github-actions[bot]'
+              git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+              git add metadata/source-lock.json
+              git commit -m 'chore(feed): track latest upstream releases'
+              git push origin HEAD:main
+              sha=$(git rev-parse HEAD)
+            fi
+          else
+            echo "source-lock tracking only runs on main; keeping $sha unchanged" >&2
+          fi
+          echo "commit_sha=$sha" >> "$GITHUB_OUTPUT"
+
   prepare:
     runs-on: ubuntu-24.04
+    needs: refresh-locks
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
       runtime_matrix: ${{ steps.matrix.outputs.runtime_matrix }}
       runtime_count: ${{ steps.matrix.outputs.runtime_count }}
       index_matrix: ${{ steps.matrix.outputs.index_matrix }}
       packages: ${{ steps.matrix.outputs.packages }}
+      scope: ${{ steps.matrix.outputs.scope }}
+      publish: ${{ steps.matrix.outputs.publish }}
+      commit_sha: ${{ needs.refresh-locks.outputs.commit_sha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          ref: ${{ needs.refresh-locks.outputs.commit_sha }}
           persist-credentials: false
       - name: Validate support and immutable source locks
         id: matrix
         env:
-          SCOPE: ${{ inputs.scope }}
+          SCOPE: ${{ inputs.scope || 'all-required' }}
+          EVENT_NAME: ${{ github.event_name }}
+          PUBLISH_INPUT: ${{ inputs.publish }}
         run: |
           set -euo pipefail
+          echo "scope=$SCOPE" >> "$GITHUB_OUTPUT"
+          if [ "$EVENT_NAME" = workflow_dispatch ] && [ "$PUBLISH_INPUT" != true ]; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
           python3 -m unittest discover -s tests -p 'test_*.py'
           python3 scripts/validate_mainstream_support.py
           python3 scripts/build_matrix.py --scope "$SCOPE" --github-output "$GITHUB_OUTPUT"
@@ -66,6 +118,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          ref: ${{ needs.prepare.outputs.commit_sha }}
           persist-credentials: false
       - name: Prepare OpenWrt feeds
         working-directory: /builder
@@ -292,6 +345,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          ref: ${{ needs.prepare.outputs.commit_sha }}
           persist-credentials: false
       - name: Download and verify exact Rill release
         env:
@@ -372,6 +426,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          ref: ${{ needs.prepare.outputs.commit_sha }}
           persist-credentials: false
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
@@ -413,6 +468,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          ref: ${{ needs.prepare.outputs.commit_sha }}
           persist-credentials: false
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
@@ -504,6 +560,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          ref: ${{ needs.prepare.outputs.commit_sha }}
           persist-credentials: false
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
@@ -518,7 +575,7 @@ jobs:
         id: gate
         env:
           PACKAGES: ${{ needs.prepare.outputs.packages }}
-          SCOPE: ${{ inputs.scope }}
+          SCOPE: ${{ needs.prepare.outputs.scope }}
         run: |
           set -euo pipefail
           mkdir -p site
@@ -544,8 +601,8 @@ jobs:
           <title>Yun OpenWrt Packages</title>
           <h1>Yun OpenWrt Packages</h1>
           <p>Version-scoped signed feed. Check <a href="support-matrix.json">support-matrix.json</a> for the exact package, OpenWrt release, and architecture qualification level, and <a href="candidate.json">candidate.json</a> for this feed's qualification summary.</p>
-          <p><code>build-install-qualified</code> covers build, signing, dependency resolution, clean installation, and upgrade checks. It does not claim device-side application Runtime behavior; that requires <code>device-runtime-qualified</code>.</p>
-          <p>This Pages artifact is a candidate until the repository deployment gate is explicitly approved.</p>
+          <p><code>build-verified</code> is derived automatically in the same run from the exact built artifact and its digest, then published by the scheduled feed. It covers build and signature identity only; it does not claim clean installation, upgrade, or device-side Runtime behavior. Those remain <code>build-install-qualified</code> and <code>device-runtime-qualified</code>.</p>
+          <p>Every scheduled run tracks the latest upstream stable release of every feed package, rebuilds the full supported matrix, and redeploys only when every supported cell is at least <code>build-verified</code>.</p>
           EOF
           (cd site && find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum) > site/SHA256SUMS
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
@@ -560,8 +617,8 @@ jobs:
 
   deploy-pages:
     name: Deploy reviewed complete feed to Pages
-    needs: pages-artifact
-    if: ${{ inputs.publish == true && needs.pages-artifact.outputs.publishable == 'true' }}
+    needs: [prepare, pages-artifact]
+    if: ${{ needs.prepare.outputs.publish == 'true' && needs.pages-artifact.outputs.publishable == 'true' }}
     runs-on: ubuntu-24.04
     permissions:
       pages: write

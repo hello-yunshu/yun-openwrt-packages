@@ -6,6 +6,24 @@ state yet. The current CFI, PM, and Rill working trees contain uncommitted or
 untracked goal changes, so their local `HEAD` values do not identify those
 changes and must not be copied into this file.
 
+## Automatic tracking
+
+The scheduled feed workflow runs `scripts/update_source_lock.py` before every
+build. It resolves the newest non-draft, non-prerelease GitHub Release for every
+package listed in `metadata/mainstream-support.json`, pins the tag commit and
+`PKG_VERSION`, resolves the Rill Runtime through its Stable qualification assets,
+and commits `metadata/source-lock.json` only when something moved. Manual
+`workflow_dispatch` runs on `main` follow the same path.
+
+Adding a feed package therefore needs no script change and no lock template:
+declare it once in the support matrix (`repository`, `path`, `architectures`),
+and the next run creates the lock entry, fills `ref`/`packageVersion`, and
+promotes it to `locked`. A support entry without `repository`/`path` is reported
+as pending instead of crashing the matrix.
+
+The manual steps below remain the recovery path when automatic resolution cannot
+find a public immutable source (for example, a package that must stay pinned).
+
 ## Application package sources
 
 After the reviewed package changes are committed and pushed in each source
@@ -57,11 +75,13 @@ release Stable matrix before importing bytes.
 ## Qualification is separate from source locking
 
 A source lock makes a build repeatable; it does not qualify installation or
-device behavior. Leave support-matrix cells pending until evidence for the
-exact package, OpenWrt release, and architecture covers build, signature,
-dependency resolution, clean install, and upgrade. Mark device Runtime as
-`not-evaluated-device` unless device evidence exists. Candidate deployment
-remains gated on every applicable matrix cell and every signed index job.
+device behavior. The automatic feed run records `build-verified` for a cell only
+after the exact artifact, digest, source ref, version, and signature all match;
+all applicable cells at that level make the candidate publishable. Leave
+support-matrix cells `pending` until evidence for the exact package, OpenWrt
+release, and architecture covers build, signature, dependency resolution, clean
+install, and upgrade; that promotion produces `build-install-qualified`. Mark
+device Runtime as `not-evaluated-device` unless device evidence exists.
 
 Run `python3 scripts/validate_mainstream_support.py`,
 `python3 scripts/build_matrix.py --show-pending`, and the feed workflow in

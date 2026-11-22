@@ -4,10 +4,12 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 MATRIX = ROOT / "metadata/mainstream-support.json"
+GITHUB_REPOSITORY = re.compile(r"^https://github\.com/[^/]+/[^/]+?(?:\.git)?$")
 QUALIFICATION_LEVELS = {"build-install-qualified", "device-runtime-qualified"}
 BASE_EVIDENCE = (
     "sourceCommit", "buildRun", "buildEvidence", "signatureEvidence",
@@ -63,6 +65,18 @@ def validate(data: dict | None = None) -> dict:
     if manager_arches != set(arch_names) or cfi_arches != set(arch_names):
         raise ValueError("CFI and Runtime Manager should include every selected feed architecture")
     for name, item in packages.items():
+        if name != "rill-runtime":
+            repository = item.get("repository")
+            path = item.get("path")
+            if not isinstance(repository, str) or not GITHUB_REPOSITORY.fullmatch(repository):
+                raise ValueError(f"{name} must declare its source GitHub repository")
+            if (
+                not isinstance(path, str)
+                or not path
+                or path.startswith("/")
+                or ".." in Path(path).parts
+            ):
+                raise ValueError(f"{name} must declare a relative source path")
         package_level = item.get("qualificationState", "pending")
         if package_level == "qualified":
             raise ValueError(f"{name} uses ambiguous qualificationState='qualified'; use an explicit qualification level")

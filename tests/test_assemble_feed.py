@@ -56,8 +56,12 @@ class AssembleFeedTests(unittest.TestCase):
             self.assertTrue((output / "25.12.6/aarch64_cortex-a53/rill-runtime-v25.12.6-aarch64_cortex-a53.apk").is_file())
             self.assertFalse((output / "24.10.8/mipsel_24kc/luci-app-performance-manager-all-1.0-r1.ipk").exists())
             candidate = json.loads((output / "candidate.json").read_text())
-            self.assertFalse(candidate["publishable"])
-            self.assertEqual(candidate["status"], "unqualified-candidate")
+            self.assertTrue(candidate["publishable"])
+            self.assertEqual(candidate["status"], "publishable-candidate")
+            self.assertEqual(candidate["qualificationPolicy"], "automatic-build-verified")
+            self.assertEqual(candidate["qualificationSummary"]["pending"], 0)
+            self.assertGreater(candidate["qualificationSummary"]["build-verified"], 0)
+            self.assertFalse(candidate["unqualifiedCells"])
 
     def test_accepts_real_hyphenated_arch_and_release_zero_apk_filenames(self):
         with tempfile.TemporaryDirectory() as tmp:

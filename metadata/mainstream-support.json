@@ -123,6 +123,8 @@
   ],
   "packages": {
     "luci-app-cloudflare-ip": {
+      "repository": "https://github.com/hello-yunshu/luci-app-cloudflare-ip.git",
+      "path": "package/luci-app-cloudflare-ip",
       "packageArch": "all",
       "architectures": [
         "x86_64",
@@ -137,6 +139,8 @@
       "qualificationState": "pending-current-source-build"
     },
     "rill-runtime-manager": {
+      "repository": "https://github.com/hello-yunshu/rill-openwrt-packages.git",
+      "path": "package/rill-runtime-manager",
       "packageArch": "all",
       "architectures": [
         "x86_64",
@@ -151,6 +155,8 @@
       "qualificationState": "pending"
     },
     "luci-app-performance-manager-all": {
+      "repository": "https://github.com/hello-yunshu/luci-app-performance-manager.git",
+      "path": "package/luci-app-performance-manager-all",
       "packageArch": "architecture-specific",
       "architectures": [
         "x86_64",
@@ -167,6 +173,8 @@
       }
     },
     "luci-app-nginx-manager": {
+      "repository": "https://github.com/hello-yunshu/luci-app-nginx-manager.git",
+      "path": ".",
       "packageArch": "all",
       "architectures": [
         "x86_64",
@@ -180,6 +188,8 @@
       "qualificationState": "pending-current-source-build"
     },
     "luci-app-upnp-nat-relay": {
+      "repository": "https://github.com/hello-yunshu/luci-app-upnp-nat-relay.git",
+      "path": "package/luci-app-upnp-nat-relay",
       "packageArch": "all",
       "architectures": [
         "x86_64",
@@ -193,6 +203,8 @@
       "qualificationState": "pending-current-source-build"
     },
     "luci-app-openclash": {
+      "repository": "https://github.com/vernesong/OpenClash.git",
+      "path": "luci-app-openclash",
       "packageArch": "all",
       "architectures": [
         "x86_64",

@@ -21,7 +21,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SUPPORT = ROOT / "metadata/mainstream-support.json"
-QUALIFICATION_LEVELS = {"build-install-qualified", "device-runtime-qualified"}
+QUALIFICATION_LEVELS = {"build-verified", "build-install-qualified", "device-runtime-qualified"}
 sys.path.insert(0, str(ROOT / "scripts"))
 from validate_mainstream_support import validate as validate_support_matrix
 
@@ -40,7 +40,9 @@ def expected_files(selected_packages: set[str] | None = None) -> dict[tuple[str,
     return result
 
 
-def qualification_summary(data: dict, selected: set[str]) -> tuple[list[dict], list[dict], dict[str, int]]:
+def qualification_summary(data: dict, selected: set[str],
+                          verified_cells: set[tuple[str, str, str]] | None = None
+                          ) -> tuple[list[dict], list[dict], dict[str, int]]:
     levels = []
     unqualified = []
     arch_names = {arch["packageArch"] for arch in data["architectures"]}
@@ -58,7 +60,9 @@ def qualification_summary(data: dict, selected: set[str]) -> tuple[list[dict], l
     ]
     if len(actual_keys) != len(set(actual_keys)) or set(actual_keys) != expected_keys:
         raise ValueError("qualification matrix is incomplete or duplicated for selected feed packages")
+    verified_cells = verified_cells or set()
     counts = {
+        "build-verified": 0,
         "build-install-qualified": 0,
         "device-runtime-qualified": 0,
         "unsupported": 0,
@@ -67,6 +71,10 @@ def qualification_summary(data: dict, selected: set[str]) -> tuple[list[dict], l
     for row in rows:
         status = row.get("status", "pending")
         level = status if status in QUALIFICATION_LEVELS or status == "unsupported" else "pending"
+        # A cell becomes build-verified when this run produced and validated its
+        # exact artifact. It never claims install, upgrade, or device runtime.
+        if level == "pending" and (row["package"], row["openwrtVersion"], row["packageArch"]) in verified_cells:
+            level = "build-verified"
         counts[level] += 1
         item = {
             "package": row["package"],
@@ -95,6 +103,7 @@ def stage(artifacts: Path, output: Path, selected_packages: set[str] | None = No
     expected = expected_files(selected)
     copy_plan: list[tuple[Path, Path]] = []
     errors: list[str] = []
+    verified_cells: set[tuple[str, str, str]] = set()
     for (release, arch), packages in sorted(expected.items()):
         source_dir = artifacts / release / arch
         for package_name, extension in packages:
@@ -165,6 +174,7 @@ def stage(artifacts: Path, output: Path, selected_packages: set[str] | None = No
             copy_plan.append((evidence_path, output / release / arch / evidence_path.name))
             for provenance in sorted(source_dir.glob("*.qualification.json")) + sorted(source_dir.glob("*.SHA256SUMS")):
                 copy_plan.append((provenance, output / release / arch / provenance.name))
+            verified_cells.add((package_name, release, arch))
     if errors:
         raise ValueError("incomplete package artifact matrix:\n" + "\n".join(errors))
     for source, destination in copy_plan:
@@ -172,7 +182,7 @@ def stage(artifacts: Path, output: Path, selected_packages: set[str] | None = No
         shutil.copy2(source, destination)
     output.mkdir(parents=True, exist_ok=True)
     pending = sorted(all_packages - selected)
-    qualification_levels, unqualified, qualification_counts = qualification_summary(data, selected)
+    qualification_levels, unqualified, qualification_counts = qualification_summary(data, selected, verified_cells)
     publishable = not pending and not unqualified
     candidate = {
         "schemaVersion": 1,
@@ -182,6 +192,7 @@ def stage(artifacts: Path, output: Path, selected_packages: set[str] | None = No
         "omittedPackages": pending,
         "qualificationLevels": qualification_levels,
         "qualificationSummary": qualification_counts,
+        "qualificationPolicy": "automatic-build-verified",
         "unqualifiedCells": unqualified,
         "sourceLockSha256": hashlib.sha256((ROOT / "metadata/source-lock.json").read_bytes()).hexdigest(),
     }
