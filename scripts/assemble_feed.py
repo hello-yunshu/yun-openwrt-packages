@@ -54,12 +54,15 @@ def qualification_summary(data: dict, selected: set[str],
         for arch in arch_names
     }
     rows = [row for row in data.get("qualificationMatrix", []) if row.get("package") in selected]
-    actual_keys = [
-        (row.get("package"), row.get("openwrtVersion"), row.get("packageArch"))
+    recorded = {
+        (row.get("package"), row.get("openwrtVersion"), row.get("packageArch")): row
         for row in rows
-    ]
-    if len(actual_keys) != len(set(actual_keys)) or set(actual_keys) != expected_keys:
-        raise ValueError("qualification matrix is incomplete or duplicated for selected feed packages")
+    }
+    if len(recorded) != len(rows):
+        raise ValueError("qualification matrix is duplicated for selected feed packages")
+    unexpected = set(recorded) - expected_keys
+    if unexpected:
+        raise ValueError(f"qualification matrix has cells outside the declared inventory: {sorted(unexpected)}")
     verified_cells = verified_cells or set()
     counts = {
         "build-verified": 0,
@@ -68,21 +71,39 @@ def qualification_summary(data: dict, selected: set[str],
         "unsupported": 0,
         "pending": 0,
     }
-    for row in rows:
-        status = row.get("status", "pending")
-        level = status if status in QUALIFICATION_LEVELS or status == "unsupported" else "pending"
-        # A cell becomes build-verified when this run produced and validated its
-        # exact artifact. It never claims install, upgrade, or device runtime.
-        if level == "pending" and (row["package"], row["openwrtVersion"], row["packageArch"]) in verified_cells:
-            level = "build-verified"
+    for package, release, arch in sorted(expected_keys):
+        row = recorded.get((package, release, arch))
+        if row is None:
+            # A newly declared package has no qualification rows yet. Derive the
+            # cell from the package's declared architectures instead of failing
+            # the whole feed: excluded arches are unsupported and the rest stay
+            # pending until this run or a later qualification record covers them.
+            supported = arch in set(data["packages"][package]["architectures"])
+            level = "pending" if supported else "unsupported"
+            if supported and (package, release, arch) in verified_cells:
+                level = "build-verified"
+            item = {
+                "package": package,
+                "openwrtVersion": release,
+                "packageArch": arch,
+                "level": level,
+                "runtimeCheck": "pending" if supported else "not-applicable",
+            }
+        else:
+            status = row.get("status", "pending")
+            level = status if status in QUALIFICATION_LEVELS or status == "unsupported" else "pending"
+            # A cell becomes build-verified when this run produced and validated
+            # its exact artifact. It never claims install, upgrade, or device runtime.
+            if level == "pending" and (package, release, arch) in verified_cells:
+                level = "build-verified"
+            item = {
+                "package": package,
+                "openwrtVersion": release,
+                "packageArch": arch,
+                "level": level,
+                "runtimeCheck": row.get("checks", {}).get("runtime", "pending"),
+            }
         counts[level] += 1
-        item = {
-            "package": row["package"],
-            "openwrtVersion": row["openwrtVersion"],
-            "packageArch": row["packageArch"],
-            "level": level,
-            "runtimeCheck": row.get("checks", {}).get("runtime", "pending"),
-        }
         levels.append(item)
         if level == "pending":
             unqualified.append(item)
