@@ -26,6 +26,21 @@ def validate_qualified_evidence(row: dict, level: str, label: str) -> None:
         raise ValueError(f"{label} has device Runtime evidence but is labeled only build-install-qualified")
 
 
+def release_series(version: str) -> str:
+    return ".".join(str(version).split(".")[:2])
+
+
+def covers_release(package: dict, release_version: str) -> bool:
+    """Whether a package is published for an OpenWrt release.
+
+    A package may restrict itself to some release series: nginx-quic pins both
+    its nginx version and its cross-compile patch set to the feed branch of one
+    release line, so it is not built (and not qualified) for the others.
+    """
+    declared = package.get("releaseSeries")
+    return not declared or release_series(release_version) in declared
+
+
 def validate(data: dict | None = None) -> dict:
     if data is None:
         data = json.loads(MATRIX.read_text(encoding="utf-8"))
