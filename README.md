@@ -45,9 +45,10 @@ wget -O /etc/apk/keys/yun-feed.rsa.pub \
   https://raw.githubusercontent.com/hello-yunshu/yun-openwrt-packages/main/keys/yun-feed.rsa.pub
 
 # 2. 添加软件源，直接指向 packages.adb
-#    x86_64 示例；ARM 设备把路径换成 aarch64_generic
+#    地址含 OpenWrt 版本目录（25.12.6 示例）；ARM 设备把末段换成 aarch64_generic
+#    根目录旧 flat 索引已随统一 feed 发布下线，不再提供
 mkdir -p /etc/apk/repositories.d
-echo "https://hello-yunshu.github.io/yun-openwrt-packages/x86_64/packages.adb" \
+echo "https://hello-yunshu.github.io/yun-openwrt-packages/25.12.6/x86_64/packages.adb" \
   > /etc/apk/repositories.d/yun-feed.list
 
 # 3. 刷新索引并安装
