@@ -36,6 +36,7 @@ class BuildMatrixTests(unittest.TestCase):
 
     def test_available_only_scope_contains_only_locked_sources(self):
         rows = build_matrix.generate("available-only")
+        lock = json.loads(build_matrix.SOURCE_LOCK.read_text())
         self.assertEqual({row["package"] for row in rows}, {
             "luci-app-nginx-manager", "luci-app-upnp-nat-relay", "luci-app-openclash",
             "luci-app-cloudflare-ip", "luci-app-performance-manager-all", "rill-runtime-manager",
@@ -44,18 +45,14 @@ class BuildMatrixTests(unittest.TestCase):
         self.assertTrue(all(
             len(row["sourceRef"]) == 40
             if row["package"] != "rill-runtime"
-            else row["sourceRef"] == "v1.5.6-r8"
+            else row["sourceRef"] == lock["rillRuntime"]["releaseTag"]
             for row in rows
         ))
-        self.assertEqual({row["package"]: row["expectedPackageVersion"] for row in rows}, {
-            "luci-app-nginx-manager": "1.8.8",
-            "luci-app-upnp-nat-relay": "1.3.13",
-            "luci-app-openclash": "0.48.002",
-            "luci-app-cloudflare-ip": "2.6.2",
-            "luci-app-performance-manager-all": "1.0.7",
-            "rill-runtime-manager": "1.0.0",
-            "rill-runtime": "1.5.6",
-        })
+        expected_versions = {
+            name: entry["packageVersion"] for name, entry in lock["packages"].items()
+        }
+        expected_versions["rill-runtime"] = lock["rillRuntime"]["packageVersion"]
+        self.assertEqual({row["package"]: row["expectedPackageVersion"] for row in rows}, expected_versions)
 
     def test_runtime_manager_is_locked_to_the_rill_source_commit(self):
         rows = build_matrix.generate("available-only")

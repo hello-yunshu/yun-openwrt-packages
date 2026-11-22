@@ -108,6 +108,21 @@ class QualificationLevelTests(unittest.TestCase):
         self.assertEqual(counts["build-install-qualified"], 1)
         self.assertEqual(counts["pending"], 93)
 
+    def test_run_evidence_derives_build_verified_without_claiming_more(self):
+        selected = set(self.data["packages"])
+        cells = {
+            (row["package"], row["openwrtVersion"], row["packageArch"])
+            for row in self.data["qualificationMatrix"]
+            if row["status"] == "pending"
+        }
+        levels, pending, counts = assembler.qualification_summary(self.data, selected, cells)
+        self.assertEqual(pending, [])
+        self.assertEqual(counts["pending"], 0)
+        self.assertEqual(counts["build-verified"], len(cells))
+        self.assertEqual(counts["unsupported"], 4)
+        self.assertEqual(counts["build-install-qualified"], 0)
+        self.assertEqual(counts["device-runtime-qualified"], 0)
+
 
 if __name__ == "__main__":
     unittest.main()

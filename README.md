@@ -115,20 +115,31 @@ apk add luci-app-nginx-manager
 
 ## 构建版本化候选 feed
 
-使用 `.github/workflows/build.yml` 的 `workflow_dispatch`。`available-only` 只构建
-[`metadata/source-lock.json`](metadata/source-lock.json) 中已经锁定完整 commit SHA 的包；当前会构建
-Nginx Manager、UPnP NAT Relay 和 OpenClash，并上传 `feed-candidate-<run id>`，不会自动发布。
-每个已锁源码还锁了包内 `PKG_VERSION`；CI 同时核对 checkout 的 Makefile、产物文件名和 build evidence，
-组装器会再次核对 evidence 的 sourceRef 是否等于锁定 commit，避免候选混入其他已构建包或不同版本。
-待锁源的提交、资格运行、Rill release asset 哈希和解锁顺序见
+`.github/workflows/build.yml` 现在是自动链路：
+
+- **触发**：每 6 小时 `schedule`；上游 release 可发 `repository_dispatch`（`upstream-release`）；
+  仍保留手动 `workflow_dispatch`。
+- **跟踪全部 feed 包**：Nginx Manager、Cloudflare IP、UPnP NAT Relay、Performance Manager All、
+  OpenClash，以及 Rill Runtime 和 Rill Runtime Manager。`scripts/update_source_lock.py` 解析每个上游
+  最新的正式 Release（非 draft、非 prerelease），固定 tag 对应的 commit、`PKG_VERSION`，以及 Rill 的
+  `qualification.json` / `SHA256SUMS` 哈希；有变化时自动提交 `metadata/source-lock.json`。
+  新增包只需在 `metadata/mainstream-support.json` 和 `metadata/source-lock.json` 中各加一条
+  模板（`repository` + `path`，`state: pending`），下一次运行会自动解析并锁定，无需改脚本。
+- **构建与发布**：自动运行使用 `all-required` 全矩阵。同一 run 内每个产物通过 digest、sourceRef、
+  版本和签名核对后记为 `build-verified`；所有适用单元格都达到 `build-verified` 时，候选即为
+  `publishable-candidate` 并自动部署到 GitHub Pages。`build-verified` 只声明构建与签名身份，
+  不声称安装、升级或设备运行；后两者仍分别需要 `build-install-qualified` 与
+  `device-runtime-qualified`。
+
+手动 dispatch 可把 `publish` 设为 `false` 做一次不部署的完整演练；`available-only` 仍可用于只构建
+已锁定的包。每个已锁源码还锁了包内 `PKG_VERSION`；CI 同时核对 checkout 的 Makefile、产物文件名和
+build evidence，组装器会再次核对 evidence 的 sourceRef 是否等于锁定 commit，避免候选混入其他已构建包
+或不同版本。待锁源的提交、资格运行、Rill release asset 哈希和解锁顺序见
 [`docs/LOCK-PROMOTION.md`](docs/LOCK-PROMOTION.md)。
-`all-required` 还要求 CFI、唯一 PM、Rill Runtime Manager 的提交锁，以及 Runtime 的精确 Rill Release ID、
-qualification.json / SHA256SUMS 哈希和 package commit。缺任何一项都会停止。
 
 工作流按支持矩阵使用对应版本的 SDK 归档构建，统一写入 `<OpenWrt版本>/<package architecture>/`，
-并分别生成已签名的 opkg `Packages` 索引和 apk `packages.adb` 索引。只有候选包矩阵完整、支持矩阵每个适用格
-都带有安装/升级/运行证据，并且手动选择 `publish=true` 时，才会进入 `github-pages` 环境部署 gate。
-尚未资格验证的候选可以下载审阅，不能部署。
+并分别生成已签名的 opkg `Packages` 索引和 apk `packages.adb` 索引。自动运行只有在候选包矩阵完整、
+每个适用单元格至少达到 `build-verified` 时才部署；不满足时仍会产出可下载审阅的候选，但不会覆盖线上 feed。
 
 历史根目录 APK feed 的手工操作见 [docs/BUILD.md](docs/BUILD.md)，它仍使用旧的 25.12.0 两架构路径，不是本轮版本化构建流程。
 
