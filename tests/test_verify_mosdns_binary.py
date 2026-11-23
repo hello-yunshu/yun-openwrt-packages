@@ -101,6 +101,27 @@ class LocateBinaryTests(unittest.TestCase):
             self.assertIsNone(gate.locate_binary(Path(tmp)))
 
 
+class ProbeVersionTests(unittest.TestCase):
+    def test_unexecutable_binary_degrades_instead_of_raising(self):
+        """回归：musl 目标在 glibc 容器里跑会 ENOENT，脚本不能因此崩掉。
+
+        这是真发生过的失败——CI 里 execve 抛 FileNotFoundError，脚本带着
+        traceback 退出，看起来像门禁坏了而不是"这里跑不了"。
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            binary = Path(tmp) / "mosdns"
+            binary.write_text("#!/nonexistent/interpreter\n", encoding="utf-8")
+            binary.chmod(0o755)
+            runs, detail = gate.probe_version(binary)
+        self.assertFalse(runs)
+        self.assertTrue(detail)
+
+    def test_missing_binary_degrades_instead_of_raising(self):
+        runs, detail = gate.probe_version(Path("/nonexistent/mosdns"))
+        self.assertFalse(runs)
+        self.assertTrue(detail)
+
+
 class IdnaFallbackTests(unittest.TestCase):
     def test_hostname_socket_calls_survive_a_trimmed_python(self):
         """OpenWrt's python3 lacks encodings.idna; the fallback must restore it."""

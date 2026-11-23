@@ -287,6 +287,11 @@ jobs:
               [ -n "$go_pkg" ] || { echo "找不到 golang 包：feeds install golang 之后仍无 package/feeds/*/golang" >&2; exit 1; }
               echo "构建 Go 工具链：$go_pkg"
               make "${go_pkg}/host/compile" V=s -j"$(nproc)" </dev/null
+              # 默认 -linkmode external 不带 -static，产物动态链接 musl：在容器
+              # 或任何非目标 rootfs 里 execve 直接 ENOENT，门禁的实跑项就废了。
+              # 上游 workflow 也是这么改的，改完与它发布的二进制一致。
+              python3 "$GITHUB_WORKSPACE/scripts/patch_mosdns_static.py" \
+                "$(readlink -f package/mosdns)/Makefile"
               ;;
           esac
           make "package/${PKG_NAME}/compile" V=s -j"$(nproc)" </dev/null

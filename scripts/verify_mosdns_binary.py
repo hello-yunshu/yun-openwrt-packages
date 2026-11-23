@@ -415,6 +415,26 @@ def extract_apk(apk: Path, dest: Path, tool: str | None) -> Path:
     return binary
 
 
+def probe_version(binary: Path) -> tuple[bool, str]:
+    """Return (runs_here, detail). Never raises.
+
+    execve 在两种情况下失败而不是返回非零：目标架构与本机不同，或二进制动态
+    链接而本机没有对应 ELF 解释器（musl 目标在 glibc 容器里跑会报 ENOENT，
+    而不是"无法执行"）。两种都只说明"这里跑不了"，不是构建有问题。
+    """
+    try:
+        proc = subprocess.run(
+            [str(binary), "version"], capture_output=True, text=True, timeout=10
+        )
+    except OSError as exc:
+        return False, exc.strerror or "cannot execute"
+    except subprocess.TimeoutExpired:
+        return False, "timed out"
+    if proc.returncode != 0:
+        return False, f"exited {proc.returncode}"
+    return True, (proc.stdout or proc.stderr or "").strip()
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("artifact", type=Path, help=".apk file or an extracted directory")
@@ -443,14 +463,12 @@ def main() -> int:
 
         executable = not args.static_only and os.access(binary, os.X_OK)
         if executable:
-            probe = subprocess.run(
-                [str(binary), "version"], capture_output=True, text=True, timeout=10
-            )
-            if probe.returncode != 0:
-                executable = False
-                print("  note: binary does not run on this host, falling back to static check")
+            runs, detail = probe_version(binary)
+            if runs:
+                print(f"  version: {detail}")
             else:
-                print(f"  version: {probe.stdout.strip() or probe.stderr.strip()}")
+                executable = False
+                print(f"  note: 无法在此执行（{detail}），降级为静态检查")
 
         print("\n-- static --")
         static_failures = static_check(binary)
