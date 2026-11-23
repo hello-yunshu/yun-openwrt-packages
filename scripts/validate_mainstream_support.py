@@ -92,6 +92,14 @@ def validate(data: dict | None = None) -> dict:
                 or ".." in Path(path).parts
             ):
                 raise ValueError(f"{name} must declare a relative source path")
+        local_release = item.get("localRelease")
+        if local_release is not None:
+            # The value is spliced into PKG_RELEASE at build time as
+            # upstream*100 + local, so it must be a bare 1-99 integer: anything
+            # wider would collide with the next upstream release, and anything
+            # non-numeric would break the sed or produce an invalid apk version.
+            if not isinstance(local_release, str) or not re.fullmatch(r"[1-9][0-9]?", local_release):
+                raise ValueError(f"{name} localRelease must be an integer string from 1 to 99")
         package_level = item.get("qualificationState", "pending")
         if package_level == "qualified":
             raise ValueError(f"{name} uses ambiguous qualificationState='qualified'; use an explicit qualification level")

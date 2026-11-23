@@ -244,6 +244,7 @@
       "releaseSeries": [
         "25.12"
       ],
+      "localRelease": "1",
       "qualificationState": "pending-current-source-build"
     },
     "luci-app-mosdns": {
@@ -257,6 +258,7 @@
       "releaseSeries": [
         "25.12"
       ],
+      "localRelease": "1",
       "qualificationState": "pending-current-source-build"
     }
   },

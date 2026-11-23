@@ -164,6 +164,28 @@ class QualificationLevelTests(unittest.TestCase):
         self.assertEqual(counts["build-verified"], 99)
         self.assertEqual(counts["pending"], 0)
 
+    def test_local_release_accepts_one_to_ninety_nine(self):
+        # 1-99 keeps upstream*100+local inside its own release band, so the next
+        # upstream release (16 -> 1601) still outranks 1501.
+        for value in ("1", "9", "99"):
+            with self.subTest(value=value):
+                data = copy.deepcopy(self.data)
+                data["packages"]["mosdns"]["localRelease"] = value
+                validator.validate(data)
+
+    def test_local_release_rejects_values_outside_the_band(self):
+        for value in ("0", "100", "150", "1.1", "1a", "", 1):
+            with self.subTest(value=value):
+                data = copy.deepcopy(self.data)
+                data["packages"]["mosdns"]["localRelease"] = value
+                with self.assertRaises(ValueError):
+                    validator.validate(data)
+
+    def test_packages_without_local_release_are_unaffected(self):
+        data = copy.deepcopy(self.data)
+        self.assertNotIn("localRelease", data["packages"]["luci-app-openclash"])
+        validator.validate(data)
+
 
 if __name__ == "__main__":
     unittest.main()

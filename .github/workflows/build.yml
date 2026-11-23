@@ -263,6 +263,43 @@ jobs:
           PKG_NAME: ${{ matrix.package }}
         run: |
           set -euo pipefail
+          # 同名同版本但内容不同的坑：OpenWrt-Add 的 mosdns-5.3.4-r15 是无补丁
+          # 构建，与本 feed 的补丁版 apk 版本字符串完全一致，apk 会判「已满足」
+          # 而不替换，于是装到哪一份取决于仓库顺序。给 support matrix 里声明了
+          # localRelease 的包重编 PKG_RELEASE，让版本比较天然胜出。
+          #
+          # 不能用点号后缀：apk 的 -rN 只接受纯数字，实测 `apk mkpkg` 对
+          # 5.3.4-r15.1 直接报 "package version is invalid"（epoch 前缀 1: 同样
+          # 被拒）。所以把「上游 release」和「本地序号」拼成一个新数字：
+          # 15 -> 1501，16 -> 1601。既大于上游同 release，又随上游进位保持单调，
+          # 上游修 bug 后设备仍能正常升级。
+          local_release="$(python3 - "$GITHUB_WORKSPACE/metadata/mainstream-support.json" "$PKG_NAME" <<'PY'
+          import json, sys
+          packages = json.load(open(sys.argv[1], encoding="utf-8"))["packages"]
+          print(packages.get(sys.argv[2], {}).get("localRelease", ""))
+          PY
+          )"
+          if [ -n "$local_release" ]; then
+            mkfile="$(readlink -f "package/${PKG_NAME}")/Makefile"
+            test -f "$mkfile" || { echo "找不到 Makefile：$mkfile" >&2; exit 1; }
+            upstream_release="$(sed -n 's/^PKG_RELEASE:=//p' "$mkfile" | head -n1)"
+            test -n "$upstream_release" || { echo "PKG_RELEASE 缺失：$mkfile" >&2; exit 1; }
+            case "$upstream_release" in
+              *[!0-9]*)
+                echo "PKG_RELEASE 非纯数字，无法加本地序号：r${upstream_release}" >&2
+                exit 1
+                ;;
+            esac
+            if [ "$upstream_release" -ge 100 ]; then
+              echo "PKG_RELEASE 已是 r${upstream_release}（>=100），疑似重复处理，拒绝叠加" >&2
+              exit 1
+            fi
+            computed_release=$(( upstream_release * 100 + local_release ))
+            sed -i "s|^PKG_RELEASE:=.*$|PKG_RELEASE:=${computed_release}|" "$mkfile"
+            grep -qx "PKG_RELEASE:=${computed_release}" "$mkfile" ||
+              { echo "本地 release 写入失败：$mkfile" >&2; exit 1; }
+            echo "本地 release 序号：${PKG_NAME} r${upstream_release} -> r${computed_release}"
+          fi
           echo "CONFIG_PACKAGE_${PKG_NAME}=y" >> .config
           make defconfig </dev/null
           make package/feeds/luci/luci-base/host/compile V=s -j"$(nproc)" </dev/null

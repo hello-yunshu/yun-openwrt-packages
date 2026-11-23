@@ -54,6 +54,32 @@
 
 `build_matrix.py` 现在会尊重 `releaseSeries`（此前只有 `assemble_feed.py` 尊重它，两个脚本口径不一致会导致为不发布的版本白编一遍，并在工具链不足时让整条流水线失败）。
 
+## 与 OpenWrt-Add 的版本号冲突
+
+`qiusimons.github.io/OpenWrt-Add` 也发布 `mosdns-5.3.4-r15`，但那是**无补丁**构建（索引里 `installed-size: 20028808`），与本 feed 的补丁版同版本号、不同内容。apk 只比较版本字符串，同版本判「已满足」，既不替换也不提示——装到哪一份取决于 `/etc/apk/repositories` 的顺序。
+
+本 feed 现有 8 个包里，与 OpenWrt-Add 撞名且撞版本的只有两个：
+
+| 包 | 本 feed | OpenWrt-Add | 内容 |
+|---|---|---|---|
+| `mosdns` | 5.3.4-r15 | 5.3.4-r15 | 不同（本 feed 带 30 个补丁） |
+| `luci-app-mosdns` | 1.7.15-r1 | 1.7.15-r1 | 等价（两边都无补丁） |
+
+其余 6 个（nginx-manager、cloudflare-ip、upnp-nat-relay、openclash、performance-manager-all、rill-runtime-manager）在 OpenWrt-Add 里根本不存在，无需处理。
+
+解决方式是在 `metadata/mainstream-support.json` 里给这两个包声明 `"localRelease": "1"`，构建时把 `PKG_RELEASE` 从上游值改成 `上游 × 100 + 本地序号`：
+
+| 包 | 上游 | 本 feed | 上游下次进位后 |
+|---|---|---|---|
+| `mosdns` | r15 | r1501 | r16 → r1601 |
+| `luci-app-mosdns` | r1 | r101 | r2 → r201 |
+
+这样版本比较天然压过 OpenWrt-Add，与仓库顺序无关；同时编码里保留了上游 release，上游修 bug 进位后本 feed 依然单调递增，设备能正常升级。
+
+**不能用点号后缀**：apk 的 `-rN` 只接受纯数字。实测 `apk mkpkg --info version:5.3.4-r15.1` 直接报 `package version is invalid`，epoch 前缀 `1:5.3.4-r15` 同样被拒。
+
+`validate_mainstream_support.py` 把 `localRelease` 限制为 1-99 的整数串：超过 99 会溢出到下一个上游 release 的区段，非数字则会破坏写入。
+
 ## 门禁
 
 `scripts/verify_mosdns_binary.py` 在发布前解包并**实际运行**候选构建：
@@ -70,7 +96,10 @@
 
 ## 升级
 
-改 `metadata/source-lock.json` 里两个包的 `ref` 到新的上游 commit，并把 `packageVersion` 同步为新的 `PKG_VERSION`。签名与门禁会自动重跑。
+两条路径都是自动的，不需要人工改 `metadata/source-lock.json`：
+
+- **上游发新 Release**：`refresh-locks` 每 6 小时取最新的非 draft/prerelease tag，`git ls-remote` peel 到 commit 后写入 `ref`，`packageVersion` 取自该 commit 的 `PKG_VERSION`。`PKG_RELEASE` 不落盘，由构建时的 `localRelease` 规则现算（r16 → r1601），所以上游进位后设备能正常升级。
+- **同一 tag 重建 Release**：commit 会变但版本号不变，apk 仍判「已满足」，需要设备端 `apk add --force-reinstall mosdns` 才换得掉。这种情况无法用版本号区分，属于 `release` 跟踪模式的固有代价。
 
 若上游引入新的必需插件，`verify_mosdns_binary.py` 的 `REQUIRED_PLUGINS` 要一起更新，否则新能力不会被保护。
 
