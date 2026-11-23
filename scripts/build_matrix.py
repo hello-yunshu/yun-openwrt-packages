@@ -12,6 +12,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SUPPORT = ROOT / "metadata/mainstream-support.json"
 SOURCE_LOCK = ROOT / "metadata/source-lock.json"
+sys.path.insert(0, str(ROOT / "scripts"))
+from validate_mainstream_support import covers_release
 
 
 def declared_identity(package: dict) -> tuple[str, object]:
@@ -113,6 +115,12 @@ def generate(scope: str = "all-required") -> list[dict]:
             continue
         allowed_arches = set(package["architectures"])
         for release in data["releases"]:
+            # releaseSeries 是包的发布范围声明。assemble_feed.py 已按它裁剪
+            # 完整性校验，这里必须同样裁剪，否则会为一个根本不发布的版本
+            # 生成构建行——两者不一致时 CI 会编出没人要的包，且在目标版本上
+            # 缺工具链（例如 Go 版本不足）时整条流水线失败。
+            if not covers_release(package, release["version"]):
+                continue
             for arch in data["architectures"]:
                 package_arch = arch["packageArch"]
                 if package_arch not in allowed_arches:

@@ -33,3 +33,7 @@ logs/
 # ---- 系统垃圾 ----
 .DS_Store
 Thumbs.db
+
+# ---- Python ----
+__pycache__/
+*.pyc

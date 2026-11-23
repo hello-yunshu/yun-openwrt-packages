@@ -98,13 +98,16 @@ class QualificationLevelTests(unittest.TestCase):
 
     def test_candidate_accepts_build_install_rows_but_retains_each_level(self):
         selected = set(self.data["packages"])
+    # 计数包含 mosdns / luci-app-mosdns（各 x86_64 + aarch64_generic，
+    # 仅 25.12.6）：4 个新增待验证格，以及它们因 releaseSeries ["25.12"]
+    # 和双架构声明而在其余版本/架构上产生的 unsupported 格。
         for row in self.data["qualificationMatrix"]:
             if row["status"] == "pending":
                 self.mark_row(row, "build-install-qualified")
         levels, pending, counts = assembler.qualification_summary(self.data, selected)
         self.assertEqual(pending, [])
-        self.assertEqual(counts["build-install-qualified"], 93)
-        self.assertEqual(counts["unsupported"], 4)
+        self.assertEqual(counts["build-install-qualified"], 97)
+        self.assertEqual(counts["unsupported"], 14)
         self.assertTrue(all(
             row["runtimeCheck"] == "not-evaluated-device"
             for row in levels if row["level"] == "build-install-qualified"
@@ -115,9 +118,9 @@ class QualificationLevelTests(unittest.TestCase):
         row = self.supported_row(self.data)
         self.mark_row(row, "build-install-qualified")
         levels, pending, counts = assembler.qualification_summary(self.data, selected)
-        self.assertEqual(len(pending), 92)
+        self.assertEqual(len(pending), 96)
         self.assertEqual(counts["build-install-qualified"], 1)
-        self.assertEqual(counts["pending"], 92)
+        self.assertEqual(counts["pending"], 96)
 
     def test_run_evidence_derives_build_verified_without_claiming_more(self):
         selected = set(self.data["packages"])
@@ -130,7 +133,7 @@ class QualificationLevelTests(unittest.TestCase):
         self.assertEqual(pending, [])
         self.assertEqual(counts["pending"], 0)
         self.assertEqual(counts["build-verified"], len(cells))
-        self.assertEqual(counts["unsupported"], 4)
+        self.assertEqual(counts["unsupported"], 14)
         self.assertEqual(counts["build-install-qualified"], 0)
         self.assertEqual(counts["device-runtime-qualified"], 1)
 
@@ -148,8 +151,8 @@ class QualificationLevelTests(unittest.TestCase):
         new_cells = [row for row in levels if row["package"] == "luci-app-brand-new"]
         self.assertEqual({row["level"] for row in new_cells}, {"pending", "unsupported"})
         self.assertEqual(len([row for row in new_cells if row["level"] == "unsupported"]), 12)
-        self.assertEqual(counts["pending"], 95)
-        self.assertEqual(counts["unsupported"], 16)
+        self.assertEqual(counts["pending"], 99)
+        self.assertEqual(counts["unsupported"], 26)
         self.assertEqual(len([row for row in pending if row["package"] == "luci-app-brand-new"]), 2)
 
         verified = {
@@ -158,7 +161,7 @@ class QualificationLevelTests(unittest.TestCase):
         }
         _, still_pending, counts = assembler.qualification_summary(self.data, selected, verified)
         self.assertEqual(still_pending, [])
-        self.assertEqual(counts["build-verified"], 95)
+        self.assertEqual(counts["build-verified"], 99)
         self.assertEqual(counts["pending"], 0)
 
 

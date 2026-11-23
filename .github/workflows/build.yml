@@ -307,6 +307,18 @@ jobs:
             test -x staging_dir/host/bin/apk
             staging_dir/host/bin/apk --keys-dir "$GITHUB_WORKSPACE/keys" verify "$output/$(basename "${packages[0]}")"
           fi
+          # mosdns ships as one package name/version in two incompatible
+          # flavours: upstream (no sbwml patches) and patched.  luci-app-mosdns
+          # is written against the patched one and degrades silently on the
+          # other, so verify what the binary can actually do before it is
+          # published.  Foreign architectures cannot be executed here; the
+          # script falls back to its static check on its own.
+          if [ "$PKG_NAME" = mosdns ]; then
+            python3 "$GITHUB_WORKSPACE/scripts/verify_mosdns_binary.py" \
+              "$output/$(basename "${packages[0]}")" \
+              --arch "$PACKAGE_ARCH" \
+              --apk-tool "$PWD/staging_dir/host/bin/apk"
+          fi
           PACKAGE_SHA256=$(sha256sum "$output/$(basename "${packages[0]}")" | awk '{print $1}')
           export PKG_NAME PKG_FORMAT OPENWRT_VERSION PACKAGE_ARCH OPENWRT_TARGET OPENWRT_SUBTARGET SDK_TAG SOURCE_REF PACKAGE_SHA256 EXPECTED_PACKAGE_VERSION
           python3 - <<'PY'

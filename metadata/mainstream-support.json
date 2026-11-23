@@ -232,6 +232,32 @@
       "excludedArchitectures": {
         "mipsel_24kc": "Rustup does not provide the target triple; source-built Rust std remains unqualified."
       }
+    },
+    "mosdns": {
+      "repository": "https://github.com/sbwml/luci-app-mosdns.git",
+      "path": "mosdns",
+      "packageArch": "architecture-specific",
+      "architectures": [
+        "x86_64",
+        "aarch64_generic"
+      ],
+      "releaseSeries": [
+        "25.12"
+      ],
+      "qualificationState": "pending-current-source-build"
+    },
+    "luci-app-mosdns": {
+      "repository": "https://github.com/sbwml/luci-app-mosdns.git",
+      "path": "luci-app-mosdns",
+      "packageArch": "all",
+      "architectures": [
+        "x86_64",
+        "aarch64_generic"
+      ],
+      "releaseSeries": [
+        "25.12"
+      ],
+      "qualificationState": "pending-current-source-build"
     }
   },
   "qualificationMatrix": [
@@ -1943,6 +1969,74 @@
       "target": "ramips",
       "subtarget": "mt7621",
       "packageArch": "mipsel_24kc",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "mosdns",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "x86",
+      "subtarget": "64",
+      "packageArch": "x86_64",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "mosdns",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "armsr",
+      "subtarget": "armv8",
+      "packageArch": "aarch64_generic",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-mosdns",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "x86",
+      "subtarget": "64",
+      "packageArch": "x86_64",
+      "status": "pending",
+      "checks": {
+        "build": "pending",
+        "dependencyResolution": "pending",
+        "signature": "pending",
+        "cleanInstall": "pending",
+        "upgrade": "pending",
+        "runtime": "pending"
+      }
+    },
+    {
+      "package": "luci-app-mosdns",
+      "openwrtVersion": "25.12.6",
+      "packageFormat": "apk",
+      "target": "armsr",
+      "subtarget": "armv8",
+      "packageArch": "aarch64_generic",
       "status": "pending",
       "checks": {
         "build": "pending",

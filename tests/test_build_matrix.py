@@ -40,7 +40,7 @@ class BuildMatrixTests(unittest.TestCase):
         self.assertEqual({row["package"] for row in rows}, {
             "luci-app-nginx-manager", "luci-app-upnp-nat-relay", "luci-app-openclash",
             "luci-app-cloudflare-ip", "luci-app-performance-manager-all", "rill-runtime-manager",
-            "rill-runtime",
+            "rill-runtime", "mosdns", "luci-app-mosdns",
         })
         self.assertTrue(all(
             len(row["sourceRef"]) == 40
@@ -80,7 +80,10 @@ class BuildMatrixTests(unittest.TestCase):
 
     def test_candidate_matrix_size_and_signing_axes(self):
         rows = build_matrix.generate("available-only")
-        self.assertEqual(len(rows), 94)
+        # 98 = 94 基线 + mosdns/luci-app-mosdns 各 2 个架构（x86_64、
+        # aarch64_generic）。这两个包声明了 releaseSeries ["25.12"]，因此
+        # 只为 apk 版本生成构建行，不会为 24.10.8 的 ipk 生成。
+        self.assertEqual(len(rows), 98)
         self.assertEqual(len(build_matrix.index_matrix("available-only")), 14)
 
     def test_noarch_cfi_and_manager_include_mips(self):
