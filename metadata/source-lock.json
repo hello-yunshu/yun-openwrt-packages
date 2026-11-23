@@ -11,7 +11,7 @@
     "luci-app-cloudflare-ip": {
       "repository": "https://github.com/hello-yunshu/luci-app-cloudflare-ip.git",
       "path": "package/luci-app-cloudflare-ip",
-      "ref": "5f540aac8b56b73ab00074c8a76dd0707c0b6b76",
+      "ref": "8d1cd8d30b02ff00f3cb7189eb0c7d90ae7cf579",
       "state": "locked",
       "packageVersion": "2.6.2"
     },
