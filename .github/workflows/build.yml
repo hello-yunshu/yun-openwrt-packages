@@ -266,6 +266,29 @@ jobs:
           echo "CONFIG_PACKAGE_${PKG_NAME}=y" >> .config
           make defconfig </dev/null
           make package/feeds/luci/luci-base/host/compile V=s -j"$(nproc)" </dev/null
+          # Go 包的 PKG_BUILD_DEPENDS:=golang/host 只在全局 `make package/compile`
+          # 解析依赖图时才被满足；单独 `make package/<name>/compile` 不会去编 host
+          # 工具链，结果是 golang-build.sh 报 "go: command not found"（Error 127）。
+          # mosdns 是目前唯一的 Go 包，显式先编它的 host 工具链。
+          # golang 在 packages feed 的 lang/ 子目录下，但布局可能变化，两种都探一下。
+          case "$PKG_NAME" in
+            mosdns)
+              go_pkg=""
+              for candidate in package/feeds/packages/golang package/feeds/packages/lang/golang; do
+                if [ -d "$candidate" ]; then go_pkg="$candidate"; break; fi
+              done
+              if [ -z "$go_pkg" ]; then
+                # feeds install 是逐包建软链的，host 包不一定被装过。显式装一次。
+                ./scripts/feeds install golang
+                for candidate in package/feeds/packages/golang package/feeds/packages/lang/golang; do
+                  if [ -d "$candidate" ]; then go_pkg="$candidate"; break; fi
+                done
+              fi
+              [ -n "$go_pkg" ] || { echo "找不到 golang 包：feeds install golang 之后仍无 package/feeds/*/golang" >&2; exit 1; }
+              echo "构建 Go 工具链：$go_pkg"
+              make "${go_pkg}/host/compile" V=s -j"$(nproc)" </dev/null
+              ;;
+          esac
           make "package/${PKG_NAME}/compile" V=s -j"$(nproc)" </dev/null
       - name: Verify and collect exact package artifact
         working-directory: /builder
