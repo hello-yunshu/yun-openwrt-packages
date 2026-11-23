@@ -25,10 +25,14 @@
 ```json
 "repository": "https://github.com/sbwml/luci-app-mosdns.git",
 "path": "mosdns",              // 以及 "luci-app-mosdns"
-"ref": "a8a6caffe04167dbb17407a63463eb4ce7243873"
+"ref": "dbdd91ab8ac8b079b6a3ca1a48d99e970d17111b"
 ```
 
-该仓库包含 18 个补丁（`100-`、`203-` 至 `219-`），关键几项：
+该 ref 是 tag `v5.3.4-r15` 指向的 commit，**不是 v5 分支 head**——`refresh-locks`
+跟的是 tag，因此锁定值与发布出去的 apk 一一对应，不会随分支漂移。分支 head 通常
+领先于 tag（含未发布的改动），锁它会让构建产物与已发布的二进制对不上。
+
+该仓库在 `mosdns/patches/` 下有 30 个补丁（`100-`、`203-` 至 `221-`），关键几项：
 
 | 补丁 | 作用 |
 | --- | --- |
