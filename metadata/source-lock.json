@@ -4,7 +4,7 @@
     "luci-app-nginx-manager": {
       "repository": "https://github.com/hello-yunshu/luci-app-nginx-manager.git",
       "path": ".",
-      "ref": "070bbb15c3058ad4f99131631994ce2d32870edd",
+      "ref": "b0b50ec315b92f5d1dc66207ea42665e3b27fa27",
       "packageVersion": "1.8.11",
       "state": "locked"
     },
@@ -46,14 +46,14 @@
     "mosdns": {
       "repository": "https://github.com/sbwml/luci-app-mosdns.git",
       "path": "mosdns",
-      "ref": "a8a6caffe04167dbb17407a63463eb4ce7243873",
+      "ref": "dbdd91ab8ac8b079b6a3ca1a48d99e970d17111b",
       "packageVersion": "5.3.4",
       "state": "locked"
     },
     "luci-app-mosdns": {
       "repository": "https://github.com/sbwml/luci-app-mosdns.git",
       "path": "luci-app-mosdns",
-      "ref": "a8a6caffe04167dbb17407a63463eb4ce7243873",
+      "ref": "dbdd91ab8ac8b079b6a3ca1a48d99e970d17111b",
       "packageVersion": "1.7.15",
       "state": "locked"
     }
