@@ -727,9 +727,10 @@ jobs:
             echo "::notice::未配置 YUNWRT_DISPATCH_TOKEN，跳过 YunWrt 触发"
             exit 0
           fi
-          gh api -X POST repos/hello-yunshu/YunWrt/dispatches \
-            -f event_type=feed-updated \
-            -f "client_payload[feed_commit]=${FEED_COMMIT}" \
-            -f "client_payload[feed_scope]=${FEED_SCOPE}" \
-            -f "client_payload[feed_run_id]=${RUN_ID}"
+          payload="$(jq -nc \
+            --arg commit "${FEED_COMMIT}" \
+            --arg scope "${FEED_SCOPE}" \
+            --arg run "${RUN_ID}" \
+            '{event_type: "feed-updated", client_payload: {feed_commit: $commit, feed_scope: $scope, feed_run_id: $run}}')"
+          printf '%s' "${payload}" | gh api -X POST repos/hello-yunshu/YunWrt/dispatches --input -
           echo "已触发 YunWrt 构建（feed ${FEED_COMMIT:-unknown}，scope ${FEED_SCOPE:-unknown}）"
