@@ -706,3 +706,30 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5
+
+  trigger-yunwrt:
+    name: Trigger YunWrt image build
+    needs: [prepare, deploy-pages]
+    if: ${{ needs.prepare.outputs.publish == 'true' && needs.deploy-pages.result == 'success' }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Dispatch feed-updated to YunWrt
+        env:
+          GH_TOKEN: ${{ secrets.YUNWRT_DISPATCH_TOKEN }}
+          FEED_COMMIT: ${{ needs.prepare.outputs.commit_sha }}
+          FEED_SCOPE: ${{ needs.prepare.outputs.scope }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GH_TOKEN}" ]; then
+            echo "::notice::未配置 YUNWRT_DISPATCH_TOKEN，跳过 YunWrt 触发"
+            exit 0
+          fi
+          gh api -X POST repos/hello-yunshu/YunWrt/dispatches \
+            -f event_type=feed-updated \
+            -f "client_payload[feed_commit]=${FEED_COMMIT}" \
+            -f "client_payload[feed_scope]=${FEED_SCOPE}" \
+            -f "client_payload[feed_run_id]=${RUN_ID}"
+          echo "已触发 YunWrt 构建（feed ${FEED_COMMIT:-unknown}，scope ${FEED_SCOPE:-unknown}）"
