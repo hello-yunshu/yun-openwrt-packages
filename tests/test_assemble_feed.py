@@ -3,9 +3,11 @@ from __future__ import annotations
 import importlib.util
 import hashlib
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts/assemble_feed.py"
 SPEC = importlib.util.spec_from_file_location("assemble_feed", SCRIPT)
@@ -100,18 +102,23 @@ class AssembleFeedTests(unittest.TestCase):
                         "sourceRef": source_ref,
                         "packageVersion": package_version,
                     }))
-            assemble_feed.stage(artifacts, output, packages)
+            with mock.patch.dict(os.environ, {"FEED_BUILD_ID": "run-42"}):
+                assemble_feed.stage(artifacts, output, packages)
             manager_version = self.fixture_identity("luci-app-performance-manager-all")[1]
             openclash_version = self.fixture_identity("luci-app-openclash")[1]
-            self.assertTrue(
-                (
-                    output
-                    / f"24.10.8/aarch64_cortex-a53/luci-app-performance-manager-all_{manager_version}-r7_aarch64_cortex-a53.ipk"
-                ).is_file()
+            # The package release (-rN) moves independently of the upstream
+            # version, so assert the staged shape instead of pinning -r7.
+            manager_artifacts = sorted(
+                (output / "24.10.8/aarch64_cortex-a53").glob(
+                    f"luci-app-performance-manager-all_{manager_version}-r*_aarch64_cortex-a53.ipk"
+                )
             )
+            self.assertEqual(len(manager_artifacts), 1, manager_artifacts)
             self.assertTrue(
                 (output / f"25.12.6/x86_64/luci-app-openclash-{openclash_version}.apk").is_file()
             )
+            candidate = json.loads((output / "candidate.json").read_text())
+            self.assertEqual(candidate.get("buildId"), "run-42")
 
     def test_rejects_missing_artifacts_before_staging_anything(self):
         with tempfile.TemporaryDirectory() as tmp:

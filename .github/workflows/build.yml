@@ -586,6 +586,7 @@ jobs:
       - name: Validate complete artifact set and stage versioned tree
         env:
           PACKAGES: ${{ needs.prepare.outputs.packages }}
+          FEED_BUILD_ID: ${{ github.run_id }}
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/candidate"

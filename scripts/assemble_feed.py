@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import shutil
 import sys
@@ -228,6 +229,10 @@ def stage(artifacts: Path, output: Path, selected_packages: set[str] | None = No
         "qualificationPolicy": "automatic-build-verified",
         "unqualifiedCells": unqualified,
         "sourceLockSha256": hashlib.sha256((ROOT / "metadata/source-lock.json").read_bytes()).hexdigest(),
+        # Identifies the feed run that produced this candidate. YunWrt compares
+        # it with the dispatch payload so a stale Pages copy is not mistaken for
+        # the freshly deployed index.
+        "buildId": os.environ.get("FEED_BUILD_ID", ""),
     }
     (output / "candidate.json").write_text(json.dumps(candidate, indent=2) + "\n", encoding="utf-8")
     return sum(len(packages) for packages in expected.values())
