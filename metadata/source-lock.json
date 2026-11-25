@@ -11,15 +11,15 @@
     "luci-app-cloudflare-ip": {
       "repository": "https://github.com/hello-yunshu/luci-app-cloudflare-ip.git",
       "path": "package/luci-app-cloudflare-ip",
-      "ref": "8d1cd8d30b02ff00f3cb7189eb0c7d90ae7cf579",
+      "ref": "56e3b449285f3f0792de9c35a368f16891e71eb9",
       "state": "locked",
-      "packageVersion": "2.6.2"
+      "packageVersion": "2.7.0"
     },
     "luci-app-upnp-nat-relay": {
       "repository": "https://github.com/hello-yunshu/luci-app-upnp-nat-relay.git",
       "path": "package/luci-app-upnp-nat-relay",
-      "ref": "f0aae81f424fae214492e387b1cceb72bcb6fcfa",
-      "packageVersion": "1.3.16",
+      "ref": "90a646010aba24ea25c23c1d13bcfb7b903025a6",
+      "packageVersion": "1.3.17",
       "state": "locked"
     },
     "luci-app-openclash": {
@@ -32,14 +32,14 @@
     "luci-app-performance-manager-all": {
       "repository": "https://github.com/hello-yunshu/luci-app-performance-manager.git",
       "path": "package/luci-app-performance-manager-all",
-      "ref": "428b526886abda48e949638deb9e341c92bdc2a1",
+      "ref": "40ccbccecdd148d8dc6b14a54e4469e825d1f6b9",
       "state": "locked",
-      "packageVersion": "1.0.7"
+      "packageVersion": "1.1.0"
     },
     "rill-runtime-manager": {
       "repository": "https://github.com/hello-yunshu/rill-openwrt-packages.git",
       "path": "package/rill-runtime-manager",
-      "ref": "15031fa08fe029e9792ff55d6ecdd308b9240dd5",
+      "ref": "a37e9c7f99214c2ffc697eceeb3b072fe398d9cb",
       "state": "locked",
       "packageVersion": "1.0.0"
     },
@@ -60,16 +60,14 @@
   },
   "rillRuntime": {
     "repository": "https://github.com/hello-yunshu/rill-openwrt-packages",
-    "packageCommit": "15031fa08fe029e9792ff55d6ecdd308b9240dd5",
-    "releaseTag": "v1.5.6-r8",
-    "releaseId": 453531268,
-    "qualificationSha256": "70eb33b322f1bd9df21f5236dfc5a4d22c4377eb454d6d70e8a61bdf47470961",
-    "sha256SumsSha256": "f1f234cd2ee418517802d3ea308d1bb1ffde502e37836f28e9c7fe44d8b6cec6",
+    "packageCommit": "a37e9c7f99214c2ffc697eceeb3b072fe398d9cb",
+    "releaseTag": "v1.5.6-r9",
+    "releaseId": 457203227,
+    "qualificationSha256": "3a72a84dc6f23f46ff73613434a81bef3a3a6f80dc4e07641dbebdb8dbd78911",
+    "sha256SumsSha256": "197c8fb538600ea06b582b41f5994ecb6c35883f0823211138c476570efd7915",
     "state": "locked",
-    "reason": "Stable 1.5.6-r8 release verified against qualification run 44881757222/attempt 1.",
+    "reason": "Stable v1.5.6-r9 release verified automatically from its immutable qualification manifest.",
     "packageVersion": "1.5.6",
-    "channel": "stable",
-    "qualificationRunId": 44881757222,
-    "qualificationRunAttempt": 1
+    "channel": "stable"
   }
 }
