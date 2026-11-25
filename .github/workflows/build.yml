@@ -120,7 +120,56 @@ jobs:
         with:
           ref: ${{ needs.prepare.outputs.commit_sha }}
           persist-credentials: false
+
+      # Incremental build: one cache entry per immutable build cell. The key is
+      # bound to the exact upstream source commit (sourceRef), the Rill source
+      # commit for dependent packages, the SDK tag, and a hash of every input
+      # that can change a produced package (the build recipe files below). When
+      # none of those change, the compiled artifact is restored verbatim and
+      # the whole compile chain is skipped; only packages whose inputs moved
+      # are rebuilt. assemble_feed.py still re-verifies every restored cell
+      # against the immutable source lock, so a stale cache can never be
+      # published as a different source revision.
+      - name: Restore compiled package artifact
+        id: pkg-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ${{ runner.temp }}/out
+          key: >-
+            yun-feed-pkg-v1-${{ matrix.sdkTag }}-${{ matrix.package }}-${{ matrix.packageArch }}-${{ matrix.sourceRef }}-${{ matrix.rillSourceCommit }}-${{ matrix.expectedPackageVersion }}-${{ hashFiles('.github/workflows/build.yml', 'scripts/patch_mosdns_static.py', 'scripts/build_matrix.py', 'scripts/assemble_feed.py', 'scripts/verify_cached_artifact.py', 'metadata/mainstream-support.json', 'keys/yun-feed.rsa.pub') }}
+
+      - name: Report incremental build decision
+        env:
+          CACHE_HIT: ${{ steps.pkg-cache.outputs.cache-hit }}
+          PKG_NAME: ${{ matrix.package }}
+          PKG_VER: ${{ matrix.openwrtVersion }}
+          PKG_ARCH: ${{ matrix.packageArch }}
+        run: |
+          set -euo pipefail
+          if [ "$CACHE_HIT" = "true" ]; then
+            echo "[cache hit] $PKG_NAME / $PKG_VER / $PKG_ARCH: artifact restored, skipping compile"
+          else
+            echo "[cache miss] $PKG_NAME / $PKG_VER / $PKG_ARCH: compiling this cell"
+          fi
+          echo "$PKG_NAME $PKG_VER $PKG_ARCH cache_hit=$CACHE_HIT" >> "$GITHUB_STEP_SUMMARY"
+
+      # The toolchain/feeds setup is independent of any single package source
+      # ref, so keep it in a separate, wider cache. restore-keys lets a new
+      # source commit reuse the already-downloaded SDK feeds and host tools.
+      - name: Restore SDK downloads and host toolchain cache
+        if: ${{ steps.pkg-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: |
+            /builder/dl
+            /builder/staging_dir/host
+          key: >-
+            yun-feed-sdk-v1-${{ matrix.sdkTag }}-${{ hashFiles('.github/workflows/build.yml', 'scripts/patch_mosdns_static.py') }}
+          restore-keys: |
+            yun-feed-sdk-v1-${{ matrix.sdkTag }}-
+
       - name: Prepare OpenWrt feeds
+        if: ${{ steps.pkg-cache.outputs.cache-hit != 'true' }}
         working-directory: /builder
         run: |
           set -euo pipefail
@@ -128,6 +177,7 @@ jobs:
           ./scripts/feeds update base packages luci
           ./scripts/feeds install luci-base rust
       - name: Fetch and verify package source commit
+        if: ${{ steps.pkg-cache.outputs.cache-hit != 'true' }}
         working-directory: /builder
         env:
           PKG_REPOSITORY: ${{ matrix.repository }}
@@ -219,7 +269,7 @@ jobs:
           fi
           grep -E '^(PKG_NAME|PKG_VERSION|PKG_RELEASE|PKGARCH):=' "package/$PKG_NAME/Makefile" || true
       - name: Prepare Rust toolchain for the Rill runtime dependency
-        if: ${{ matrix.package == 'luci-app-performance-manager-all' }}
+        if: ${{ matrix.package == 'luci-app-performance-manager-all' && steps.pkg-cache.outputs.cache-hit != 'true' }}
         working-directory: /tmp/rill-src
         env:
           RUST_TARGET: ${{ matrix.rustTarget }}
@@ -229,7 +279,7 @@ jobs:
           test -n "$RUST_TARGET"
           GITHUB_WORKSPACE=/tmp/rill-src ./scripts/prepare_rust_toolchain.sh
       - name: Prepare APK signing key
-        if: ${{ matrix.packageFormat == 'apk' }}
+        if: ${{ matrix.packageFormat == 'apk' && steps.pkg-cache.outputs.cache-hit != 'true' }}
         working-directory: /builder
         env:
           APK_PRIVATE_KEY_BASE64: ${{ secrets.APK_PRIVATE_KEY }}
@@ -242,7 +292,7 @@ jobs:
           head -1 private-key.pem | grep -q 'BEGIN .*PRIVATE KEY'
           test -s "$GITHUB_WORKSPACE/keys/yun-feed.rsa.pub"
       - name: Enable APK package signing
-        if: ${{ matrix.packageFormat == 'apk' }}
+        if: ${{ matrix.packageFormat == 'apk' && steps.pkg-cache.outputs.cache-hit != 'true' }}
         working-directory: /builder
         run: |
           set -euo pipefail
@@ -258,6 +308,7 @@ jobs:
               path.write_text(source)
           PY
       - name: Configure and build package
+        if: ${{ steps.pkg-cache.outputs.cache-hit != 'true' }}
         working-directory: /builder
         env:
           PKG_NAME: ${{ matrix.package }}
@@ -332,7 +383,29 @@ jobs:
               ;;
           esac
           make "package/${PKG_NAME}/compile" V=s -j"$(nproc)" </dev/null
+      - name: Verify restored artifact identity
+        if: ${{ steps.pkg-cache.outputs.cache-hit == 'true' }}
+        env:
+          PKG_NAME: ${{ matrix.package }}
+          PKG_FORMAT: ${{ matrix.packageFormat }}
+          OPENWRT_VERSION: ${{ matrix.openwrtVersion }}
+          PACKAGE_ARCH: ${{ matrix.packageArch }}
+          SDK_TAG: ${{ matrix.sdkTag }}
+          SOURCE_REF: ${{ matrix.sourceRef }}
+          EXPECTED_PACKAGE_VERSION: ${{ matrix.expectedPackageVersion }}
+        run: |
+          set -euo pipefail
+          python3 "$GITHUB_WORKSPACE/scripts/verify_cached_artifact.py" "$RUNNER_TEMP/out" \
+            --package "$PKG_NAME" \
+            --openwrt-version "$OPENWRT_VERSION" \
+            --package-arch "$PACKAGE_ARCH" \
+            --package-format "$PKG_FORMAT" \
+            --sdk-tag "$SDK_TAG" \
+            --source-ref "$SOURCE_REF" \
+            --expected-version "$EXPECTED_PACKAGE_VERSION"
+
       - name: Verify and collect exact package artifact
+        if: ${{ steps.pkg-cache.outputs.cache-hit != 'true' }}
         working-directory: /builder
         env:
           PKG_NAME: ${{ matrix.package }}
