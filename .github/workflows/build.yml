@@ -724,7 +724,7 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${GH_TOKEN}" ]; then
-            echo "::notice::未配置 YUNWRT_DISPATCH_TOKEN，跳过 YunWrt 触发"
+            echo "::warning::未配置 YUNWRT_DISPATCH_TOKEN，feed 已发布但不会触发 YunWrt 构建；请在 yun-openwrt-packages 仓库添加该 secret（需对 hello-yunshu/YunWrt 有 Actions 写权限）"
             exit 0
           fi
           payload="$(jq -nc \

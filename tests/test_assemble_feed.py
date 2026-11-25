@@ -101,10 +101,17 @@ class AssembleFeedTests(unittest.TestCase):
                         "packageVersion": package_version,
                     }))
             assemble_feed.stage(artifacts, output, packages)
+            manager_version = self.fixture_identity("luci-app-performance-manager-all")[1]
+            openclash_version = self.fixture_identity("luci-app-openclash")[1]
             self.assertTrue(
-                (output / "24.10.8/aarch64_cortex-a53/luci-app-performance-manager-all_1.0.7-r7_aarch64_cortex-a53.ipk").is_file()
+                (
+                    output
+                    / f"24.10.8/aarch64_cortex-a53/luci-app-performance-manager-all_{manager_version}-r7_aarch64_cortex-a53.ipk"
+                ).is_file()
             )
-            self.assertTrue((output / "25.12.6/x86_64/luci-app-openclash-0.48.002.apk").is_file())
+            self.assertTrue(
+                (output / f"25.12.6/x86_64/luci-app-openclash-{openclash_version}.apk").is_file()
+            )
 
     def test_rejects_missing_artifacts_before_staging_anything(self):
         with tempfile.TemporaryDirectory() as tmp:
