@@ -34,10 +34,15 @@ repository:
 1. Record the exact 40-character commit SHA that contains the final package
 recipe and its dependencies. For PM, include the sibling data directories read
 by `luci-app-performance-manager-all/Makefile` in that same commit.
-2. Read `PKG_VERSION` from the package Makefile at that commit and add it beside
-   `ref` in the corresponding lock entry. The feed workflow checks out the SHA,
-   checks the Makefile version, checks the produced filename, and writes both
-   source ref and package version into build evidence.
+2. Record the package version beside `ref`. Each SDK-built package can use a
+   literal `PKG_VERSION` or a Make expression that reads a single version from
+   `VERSION` beside its recipe or at the repository root. The feed reads both inputs from the same
+   commit and verifies the built package version. For a root `VERSION` of
+   `x.y.z-rc.N`, the recipe must produce the OpenWrt version `x.y.z_rcN`.
+   The feed stages each dependency's version beside its SDK recipe, so it can
+   share an SDK with plugins from different source repositories. For the
+   primary package, a repository-root `VERSION` is also available one and two
+   directories above the staged recipe for older recipes.
 3. Keep the lock pending if the commit is not retrievable from the declared
    public repository. `build_matrix.py --show-pending` is a read-only preview;
    `--scope all-required` is the fail-closed build gate.

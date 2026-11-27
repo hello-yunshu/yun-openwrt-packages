@@ -134,6 +134,35 @@ def apply_update(lock, upstream, support_packages=None, support_path=None):
 
 
 class UpdateSourceLockTests(unittest.TestCase):
+    def test_sdk_stages_primary_and_dependency_versions_separately(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            app = root / "app"
+            rill = root / "rill"
+            sdk = root / "sdk"
+            runtime = rill / "package/rill-runtime"
+            manager = rill / "package/rill-runtime-manager"
+            for path in (app, runtime, manager):
+                path.mkdir(parents=True)
+                (path / "Makefile").write_text('PKG_VERSION:=$(shell cat "$(VERSION_FILE)")\n')
+            (app / "VERSION").write_text("2.1.0\n")
+            (rill / "VERSION").write_text("1.5.6\n")
+            (manager / "VERSION").write_text("1.0.0\n")
+            expected = {"app": "2.1.0", "rill-runtime": "1.5.6", "rill-runtime-manager": "1.0.0"}
+            for package in expected:
+                (sdk / "package" / package).mkdir(parents=True)
+            for source, path, package, global_root in (
+                (app, ".", "app", sdk),
+                (rill, "package/rill-runtime", "rill-runtime", None),
+                (rill, "package/rill-runtime-manager", "rill-runtime-manager", None),
+            ):
+                sdk_package = sdk / "package" / package
+                self.assertEqual(update_source_lock.staged_source_version(source, path, global_root, sdk_package),
+                                 expected[package])
+                self.assertEqual((sdk_package / "VERSION").read_text().strip(), expected[package])
+            self.assertEqual((sdk / "VERSION").read_text(), "2.1.0\n")
+            self.assertEqual((sdk / "package/VERSION").read_text(), "2.1.0\n")
+
     def test_latest_stable_release_ignores_draft_and_prerelease(self):
         upstream = FakeUpstream()
         lock = {

@@ -136,7 +136,7 @@ jobs:
         with:
           path: ${{ runner.temp }}/out
           key: >-
-            yun-feed-pkg-v1-${{ matrix.sdkTag }}-${{ matrix.package }}-${{ matrix.packageArch }}-${{ matrix.sourceRef }}-${{ matrix.rillSourceCommit }}-${{ matrix.expectedPackageVersion }}-${{ hashFiles('.github/workflows/build.yml', 'scripts/patch_mosdns_static.py', 'scripts/build_matrix.py', 'scripts/assemble_feed.py', 'scripts/verify_cached_artifact.py', 'metadata/mainstream-support.json', 'keys/yun-feed.rsa.pub') }}
+            yun-feed-pkg-v1-${{ matrix.sdkTag }}-${{ matrix.package }}-${{ matrix.packageArch }}-${{ matrix.sourceRef }}-${{ matrix.rillSourceCommit }}-${{ matrix.expectedPackageVersion }}-${{ hashFiles('.github/workflows/build.yml', 'scripts/update_source_lock.py', 'scripts/patch_mosdns_static.py', 'scripts/build_matrix.py', 'scripts/assemble_feed.py', 'scripts/verify_cached_artifact.py', 'metadata/mainstream-support.json', 'keys/yun-feed.rsa.pub') }}
 
       - name: Report incremental build decision
         env:
@@ -197,9 +197,12 @@ jobs:
           test "$(git -C /tmp/pkg-src rev-parse HEAD)" = "$PKG_REF"
           cp -a "/tmp/pkg-src/$PKG_SOURCE_PATH/." "package/$PKG_NAME/"
           test -f "package/$PKG_NAME/Makefile"
-          if [ -n "$EXPECTED_PACKAGE_VERSION" ]; then
-            source_version=$(sed -n 's/^PKG_VERSION:=//p' "package/$PKG_NAME/Makefile" | head -n1)
-            test "$source_version" = "$EXPECTED_PACKAGE_VERSION"
+          source_version=$(python3 "$GITHUB_WORKSPACE/scripts/update_source_lock.py" \
+            --source-tree /tmp/pkg-src --package-path "$PKG_SOURCE_PATH" --sdk-root "$PWD" \
+            --sdk-package "package/$PKG_NAME")
+          if [[ "$source_version" != "$EXPECTED_PACKAGE_VERSION" ]]; then
+            echo "::error::$PKG_NAME source version $source_version does not match locked version $EXPECTED_PACKAGE_VERSION"
+            exit 1
           fi
           if [[ "$PKG_NAME" == "luci-app-performance-manager-all" ]]; then
             # The single user package Makefile consumes source files from the
@@ -232,11 +235,17 @@ jobs:
             git -C /tmp/rill-src fetch -q --depth 1 origin "$RILL_SOURCE_COMMIT"
             git -C /tmp/rill-src checkout -q --detach FETCH_HEAD
             test "$(git -C /tmp/rill-src rev-parse HEAD)" = "$RILL_SOURCE_COMMIT"
-            mkdir -p package/rill-runtime-manager
-            cp -a /tmp/rill-src/package/rill-runtime-manager/. package/rill-runtime-manager/
+            stage_rill_recipe() {
+              local recipe="$1"
+              mkdir -p "package/$recipe"
+              cp -a "/tmp/rill-src/package/$recipe/." "package/$recipe/"
+              python3 "$GITHUB_WORKSPACE/scripts/update_source_lock.py" \
+                --source-tree /tmp/rill-src --package-path "package/$recipe" \
+                --sdk-package "package/$recipe"
+            }
+            stage_rill_recipe rill-runtime-manager
             if [[ "$PKG_NAME" == "luci-app-performance-manager-all" ]]; then
-              mkdir -p package/rill-runtime
-              cp -a /tmp/rill-src/package/rill-runtime/. package/rill-runtime/
+              stage_rill_recipe rill-runtime
             else
               # The CFI recipe also defines a deprecated, empty
               # luci-app-cloudflare-ip-rill compatibility stub that depends on

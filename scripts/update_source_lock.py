@@ -6,8 +6,9 @@ metadata/source-lock.json.  The authoritative package set comes from
 metadata/mainstream-support.json; each support package must already have a lock
 entry (repository, path, and optionally track) or the refresh fails closed.  The
 script resolves each "release"-tracked package to its newest non-draft,
-non-prerelease GitHub Release, pins the tag to its commit, and reads PKG_VERSION
-from the package Makefile at that commit.  "rill-release" packages follow the
+non-prerelease GitHub Release, pins the tag to its commit, and reads the package
+version from its Makefile or repository-root VERSION at that commit.
+"rill-release" packages follow the
 qualified Rill Runtime commit, "pinned" packages are left untouched, and Rill
 Runtime itself is validated from the immutable qualification manifest published
 with its release.  Nothing is written unless --write is supplied.
@@ -22,6 +23,7 @@ import re
 import subprocess
 import tempfile
 from pathlib import Path
+from typing import Callable
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_LOCK = ROOT / "metadata/source-lock.json"
@@ -32,6 +34,8 @@ RILL_TAG = re.compile(r"^v[0-9]+\.[0-9]+\.[0-9]+-r[0-9]+$")
 SHA1 = re.compile(r"^[0-9a-f]{40}$")
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
 PKG_VERSION = re.compile(r"^PKG_VERSION:=\s*(\S.*?)\s*$")
+ROOT_VERSION_REFERENCE = re.compile(r"(?<![A-Za-z0-9])VERSION(?:_FILE)?(?![A-Za-z0-9_])")
+VERSION_TOKEN = re.compile(r"[0-9][A-Za-z0-9._+\-]*")
 
 DEFAULT_SUPPORT = ROOT / "metadata/mainstream-support.json"
 
@@ -137,8 +141,44 @@ def parse_pkg_version(makefile: str) -> str:
     return values[0]
 
 
+def resolve_pkg_version(makefile: str, read_version_file: Callable[[], str]) -> tuple[str, str | None]:
+    """Return the package version and the original VERSION text if required."""
+    assignment = parse_pkg_version(makefile)
+    if "$" not in assignment:
+        return assignment, None
+    if not ROOT_VERSION_REFERENCE.search(assignment):
+        raise ValueError("dynamic PKG_VERSION must reference a VERSION file")
+    original = read_version_file()
+    version = original.strip()
+    if not VERSION_TOKEN.fullmatch(version):
+        raise ValueError("VERSION must contain a single package version")
+    return re.sub(r"-rc\.(?=[0-9]+$)", "_rc", version), original
+
+
+def staged_source_version(source_tree: Path, path: str, sdk_root: Path | None,
+                          sdk_package: Path | None = None) -> str:
+    source_package = source_tree / path
+    makefile = (source_package / "Makefile").read_text(encoding="utf-8")
+    local_version = source_package / "VERSION"
+    has_package_version = source_package != source_tree and local_version.is_file()
+    version_file = local_version if has_package_version else source_tree / "VERSION"
+    version, original = resolve_pkg_version(
+        makefile, lambda: version_file.read_text(encoding="utf-8")
+    )
+    if original is not None:
+        targets = [sdk_package / "VERSION"] if sdk_package is not None else []
+        if sdk_root is not None and not has_package_version:
+            # Preserve the two legacy lookup locations for the primary recipe.
+            targets.extend((sdk_root / "VERSION", sdk_root / "package" / "VERSION"))
+        for target in targets:
+            if target.exists() and target.read_text(encoding="utf-8") != original:
+                raise ValueError(f"conflicting VERSION already staged at {target}")
+            target.write_text(original, encoding="utf-8")
+    return version
+
+
 def read_makefile_version(repository: str, commit: str, path: str, runner=run_command) -> str:
-    """Read PKG_VERSION from path/Makefile at an exact upstream commit."""
+    """Read version inputs from the same immutable upstream commit."""
     if not SHA1.fullmatch(commit):
         raise ValueError(f"invalid immutable commit for {repository}: {commit}")
     makefile = "Makefile" if path in ("", ".") else f"{path.rstrip('/')}/Makefile"
@@ -148,7 +188,18 @@ def read_makefile_version(repository: str, commit: str, path: str, runner=run_co
         runner(["git", "remote", "add", "origin", repository], cwd=repository_dir)
         runner(["git", "fetch", "-q", "--depth", "1", "origin", commit], cwd=repository_dir)
         source = runner(["git", "show", f"{commit}:{makefile}"], cwd=repository_dir)
-    return parse_pkg_version(source)
+
+        def read_version_file() -> str:
+            if path not in ("", "."):
+                try:
+                    return runner(["git", "show", f"{commit}:{path.rstrip('/')}/VERSION"],
+                                  cwd=repository_dir)
+                except subprocess.CalledProcessError:
+                    pass
+            return runner(["git", "show", f"{commit}:VERSION"], cwd=repository_dir)
+
+        version, _ = resolve_pkg_version(source, read_version_file)
+        return version
 
 
 def download_rill_evidence(repository_url: str, tag: str, directory: Path, runner=run_command) -> dict:
@@ -394,7 +445,18 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--lock", type=Path, default=DEFAULT_LOCK, help="source lock path")
     parser.add_argument("--write", action="store_true", help="write the refreshed lock in place")
+    parser.add_argument("--source-tree", type=Path, help="read the version from an already checked out source tree")
+    parser.add_argument("--package-path", help="path to the package recipe within --source-tree")
+    parser.add_argument("--sdk-root", type=Path, help="stage the required VERSION into this SDK")
+    parser.add_argument("--sdk-package", type=Path, help="stage VERSION beside this SDK package recipe")
     args = parser.parse_args(argv)
+    if args.source_tree is not None:
+        if args.package_path is None or args.write:
+            parser.error("--source-tree requires --package-path and cannot be used with --write")
+        print(staged_source_version(args.source_tree, args.package_path, args.sdk_root, args.sdk_package))
+        return 0
+    if args.package_path is not None or args.sdk_root is not None or args.sdk_package is not None:
+        parser.error("--package-path, --sdk-root and --sdk-package require --source-tree")
     lock = json.loads(args.lock.read_text(encoding="utf-8"))
     changes = update(lock)
     if args.write:
