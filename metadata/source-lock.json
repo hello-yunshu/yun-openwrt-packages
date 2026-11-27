@@ -39,7 +39,7 @@
     "rill-runtime-manager": {
       "repository": "https://github.com/hello-yunshu/rill-openwrt-packages.git",
       "path": "package/rill-runtime-manager",
-      "ref": "ed563a8506f9c8ed8d452378640b0863bf60813f",
+      "ref": "326b89684d52f6996d903a2449a99d6caaeacbde",
       "state": "locked",
       "packageVersion": "1.0.0"
     },
@@ -60,13 +60,13 @@
   },
   "rillRuntime": {
     "repository": "https://github.com/hello-yunshu/rill-openwrt-packages",
-    "packageCommit": "ed563a8506f9c8ed8d452378640b0863bf60813f",
-    "releaseTag": "v1.5.6-r10",
-    "releaseId": 457838908,
-    "qualificationSha256": "8dbfa966a695b89bfab58b63417315d835a1379e339972c7ea4fb2e78d53c9d4",
-    "sha256SumsSha256": "db8566a87ab5e98b497bca6ed5ef490ae857d20eba652d6c0fbf7802976451c0",
+    "packageCommit": "326b89684d52f6996d903a2449a99d6caaeacbde",
+    "releaseTag": "v1.5.6-r11",
+    "releaseId": 460391286,
+    "qualificationSha256": "8d405a44d71906feeb196dabbad24a798df85adb30756627305666f49e866069",
+    "sha256SumsSha256": "eaa04e473983943cf4ef2d33f89f51c98d44c1cbd4bda8c04345b5719fb57bb7",
     "state": "locked",
-    "reason": "Stable v1.5.6-r10 release verified automatically from its immutable qualification manifest.",
+    "reason": "Stable v1.5.6-r11 release verified automatically from its immutable qualification manifest.",
     "packageVersion": "1.5.6",
     "channel": "stable"
   }
